@@ -97,20 +97,22 @@ const title = `${niceName(sport)} Sets`;
           <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/{folder}/</code>
         </div>
       ) : (
-        <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
           {sets.map((s) => (
             <a
               href={`/${sport}/${s.set}/`}
               class="group rounded-3xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition overflow-hidden"
               title={niceName(s.set)}
             >
-              <div class="relative aspect-[16/10] bg-zinc-900/40 overflow-hidden">
+              <div class="relative h-36 bg-zinc-900/40 overflow-hidden">
+
                 {s.coverUrl ? (
                   <img
                     src={s.coverUrl}
                     alt={`${niceName(s.set)} cover`}
                     loading="lazy"
-                    class="h-full w-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition"
+                    class="h-full w-full object-contain opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition"
                   />
                 ) : (
                   <div class="h-full w-full flex items-center justify-center text-zinc-400">
@@ -126,7 +128,7 @@ const title = `${niceName(sport)} Sets`;
                 </div>
               </div>
 
-              <div class="p-5">
+              <div class="p-4">
                 <div class="text-lg font-semibold tracking-tight">{niceName(s.set)}</div>
                 <div class="mt-1 text-sm text-zinc-300">View cards →</div>
               </div>

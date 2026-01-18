@@ -16,37 +16,36 @@ export async function getStaticPaths() {
   }));
 }
 
-const { sport } = Astro.params;
+// Find the real folder on disk in a case-safe way (Linux-friendly)
+async function resolveSportFolder(sport: string) {
+  const baseDir = path.join(process.cwd(), "public", "cards");
 
-const sportFolderMap: Record<string, string> = {
-  baseball: "baseball",
-  basketball: "Basketball", // repo folder casing
-  football: "football",
-};
+  // If exact match exists, use it.
+  try {
+    await fs.access(path.join(baseDir, sport));
+    return sport;
+  } catch {}
 
-const folder = sportFolderMap[sport] ?? sport;
+  // Otherwise, scan for a case-insensitive match (handles Basketball vs basketball)
+  const entries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
+  const match = entries.find(
+    (e) => e.isDirectory() && e.name.toLowerCase() === sport.toLowerCase()
+  );
+
+  return match?.name ?? sport; // fallback
+}
+
+const sport = (Astro.params.sport ?? "").toString();
+const folder = await resolveSportFolder(sport);
 const sportDir = path.join(process.cwd(), "public", "cards", folder);
 
 const entries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
-const setDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
-setDirs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+let sets = entries.filter((e) => e.isDirectory()).map((e) => e.name);
 
-// Build "set cards" with cover + count
-type SetCard = { set: string; coverUrl: string | null; count: number };
-const sets: SetCard[] = [];
+// Optional: hide folders like ".gitkeep" if they ever show up as dirs
+sets = sets.filter((s) => !s.startsWith("."));
 
-for (const set of setDirs) {
-  const setPath = path.join(sportDir, set);
-  const files = await fs.readdir(setPath).catch(() => []);
-  const images = files.filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f));
-  images.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
-
-  sets.push({
-    set,
-    count: images.length,
-    coverUrl: images.length ? `/cards/${folder}/${set}/${images[0]}` : null,
-  });
-}
+sets.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
 const title = `${niceName(sport)} Sets`;
 ---
@@ -68,9 +67,27 @@ const title = `${niceName(sport)} Sets`;
         </div>
 
         <div class="hidden sm:flex items-center gap-2">
-          <a href="/baseball/" class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${sport === "baseball" ? "bg-zinc-900/60" : "bg-zinc-950"}`}>⚾ Baseball</a>
-          <a href="/basketball/" class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${sport === "basketball" ? "bg-zinc-900/60" : "bg-zinc-950"}`}>🏀 Basketball</a>
-          <a href="/football/" class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${sport === "football" ? "bg-zinc-900/60" : "bg-zinc-950"}`}>🏈 Football</a>
+          <a
+            href="/baseball/"
+            class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${
+              sport === "baseball" ? "bg-zinc-900/60" : "bg-zinc-950"
+            }`}
+            >⚾ Baseball</a
+          >
+          <a
+            href="/basketball/"
+            class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${
+              sport === "basketball" ? "bg-zinc-900/60" : "bg-zinc-950"
+            }`}
+            >🏀 Basketball</a
+          >
+          <a
+            href="/football/"
+            class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${
+              sport === "football" ? "bg-zinc-900/60" : "bg-zinc-950"
+            }`}
+            >🏈 Football</a
+          >
         </div>
       </div>
 
@@ -94,22 +111,20 @@ const title = `${niceName(sport)} Sets`;
       {sets.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
           No sets found. Add folders under{" "}
-          <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/{folder}/</code>
+          <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+            public/cards/{folder}/
+          </code>
         </div>
       ) : (
-        <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
-          {sets.map((s) => (
+        <section class="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {sets.map((set) => (
             <a
-              href={`/${sport}/${s.set}/`}
-              class="group rounded-3xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition overflow-hidden"
-              title={niceName(s.set)}
+              href={`/${sport}/${set}/`}
+              class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-4"
+              title={niceName(set)}
             >
-
-              <div class="p-4">
-                <div class="text-lg font-semibold tracking-tight">{niceName(s.set)}</div>
-                <div class="mt-1 text-sm text-zinc-300">View cards →</div>
-              </div>
+              <div class="text-base font-semibold tracking-tight">{niceName(set)}</div>
+              <div class="mt-1 text-sm text-zinc-300">Open set →</div>
             </a>
           ))}
         </section>

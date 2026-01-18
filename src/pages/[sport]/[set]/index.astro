@@ -11,10 +11,9 @@ function niceName(slug: string) {
 }
 
 export async function getStaticPaths() {
-  // Put the map INSIDE getStaticPaths so it always exists during build
   const sportFolderMap: Record<string, string> = {
     baseball: "baseball",
-    basketball: "Basketball", // your repo folder (capital B)
+    basketball: "Basketball",
     football: "football",
   };
 
@@ -28,9 +27,7 @@ export async function getStaticPaths() {
     const entries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
     const sets = entries.filter((e) => e.isDirectory()).map((e) => e.name);
 
-    for (const set of sets) {
-      paths.push({ params: { sport, set } });
-    }
+    for (const set of sets) paths.push({ params: { sport, set } });
   }
 
   return paths;
@@ -39,7 +36,6 @@ export async function getStaticPaths() {
 const sport = (Astro.params.sport ?? "").toString();
 const set = (Astro.params.set ?? "").toString();
 
-// Also keep the map here for runtime rendering
 const sportFolderMap: Record<string, string> = {
   baseball: "baseball",
   basketball: "Basketball",
@@ -47,11 +43,8 @@ const sportFolderMap: Record<string, string> = {
 };
 
 const folder = sportFolderMap[sport] ?? sport;
-
-// Where images live on disk
 const setDir = path.join(process.cwd(), "public", "cards", folder, set);
 
-// Read image files
 const files = await fs.readdir(setDir).catch(() => []);
 const images = files
   .filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f))
@@ -65,24 +58,46 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <title>{title}</title>
+
+    <style>
+      /* tiny “premium” touches without adding libraries */
+      .glass {
+        background: rgba(9, 9, 11, 0.55);
+        backdrop-filter: blur(10px);
+      }
+    </style>
   </head>
 
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
     <main class="mx-auto max-w-6xl px-4 py-10">
-      <div class="flex items-center justify-between gap-4">
-        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">
-          ← Back to {niceName(sport)} sets
-        </a>
+      <div class="sticky top-0 z-10 -mx-4 px-4 py-4 glass border-b border-zinc-800/60">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <a href={`/${sport}/`} class="text-sm text-zinc-300 hover:text-white">← {niceName(sport)} sets</a>
+            <span class="text-zinc-700">/</span>
+            <span class="text-sm text-zinc-400">{niceName(set)}</span>
+          </div>
 
-        <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">
-          Home
-        </a>
+          <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">Home</a>
+        </div>
+
+        <div class="mt-3 flex items-end justify-between gap-6">
+          <div>
+            <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
+            <p class="mt-1 text-zinc-300">{niceName(sport)} • {images.length} image{images.length === 1 ? "" : "s"}</p>
+          </div>
+
+          {images.length > 0 ? (
+            <button
+              id="openFirst"
+              class="hidden sm:inline-flex items-center justify-center rounded-xl bg-zinc-900/60 ring-1 ring-zinc-800 px-4 py-2 text-sm hover:ring-zinc-600"
+              type="button"
+            >
+              View first card
+            </button>
+          ) : null}
+        </div>
       </div>
-
-      <h1 class="mt-3 text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
-      <p class="mt-2 text-zinc-300">
-        {niceName(sport)} • {images.length} image{images.length === 1 ? "" : "s"}
-      </p>
 
       {images.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
@@ -97,12 +112,12 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
       ) : (
         <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((img) => (
-            <a
-              href={`/cards/${folder}/${set}/${img}`}
-              class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition overflow-hidden"
-              target="_blank"
-              rel="noreferrer"
-              title={img}
+            <button
+              type="button"
+              class="group rounded-3xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition overflow-hidden text-left"
+              data-src={`/cards/${folder}/${set}/${img}`}
+              data-name={img}
+              title="Click to zoom"
             >
               <div class="aspect-[3/4] bg-zinc-900/30 overflow-hidden">
                 <img
@@ -114,12 +129,81 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               </div>
               <div class="p-4">
                 <div class="text-sm font-medium text-zinc-200 truncate">{img}</div>
-                <div class="mt-1 text-xs text-zinc-400">Open image →</div>
+                <div class="mt-1 text-xs text-zinc-400">Click to zoom</div>
               </div>
-            </a>
+            </button>
           ))}
         </section>
       )}
+
+      {/* LIGHTBOX */}
+      <div
+        id="lightbox"
+        class="fixed inset-0 hidden items-center justify-center bg-black/75 p-4 z-50"
+        aria-hidden="true"
+      >
+        <div class="absolute inset-0" id="lightboxBackdrop"></div>
+
+        <div class="relative w-full max-w-4xl rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 overflow-hidden">
+          <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800">
+            <div class="text-sm text-zinc-200 truncate" id="lightboxTitle">Image</div>
+            <button
+              type="button"
+              id="lightboxClose"
+              class="rounded-lg bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600"
+            >
+              Close
+            </button>
+          </div>
+
+          <div class="bg-zinc-900/20">
+            <img id="lightboxImg" src="" alt="" class="w-full max-h-[80vh] object-contain" />
+          </div>
+        </div>
+      </div>
+
+      <script>
+        const lightbox = document.getElementById("lightbox");
+        const lbImg = document.getElementById("lightboxImg");
+        const lbTitle = document.getElementById("lightboxTitle");
+        const btnClose = document.getElementById("lightboxClose");
+        const backdrop = document.getElementById("lightboxBackdrop");
+        const openFirst = document.getElementById("openFirst");
+
+        function open(src, name) {
+          lbImg.src = src;
+          lbImg.alt = name || "Card";
+          lbTitle.textContent = name || "Card";
+          lightbox.classList.remove("hidden");
+          lightbox.classList.add("flex");
+          lightbox.setAttribute("aria-hidden", "false");
+        }
+
+        function close() {
+          lightbox.classList.add("hidden");
+          lightbox.classList.remove("flex");
+          lightbox.setAttribute("aria-hidden", "true");
+          lbImg.src = "";
+        }
+
+        document.querySelectorAll("button[data-src]").forEach((btn) => {
+          btn.addEventListener("click", () => open(btn.dataset.src, btn.dataset.name));
+        });
+
+        btnClose?.addEventListener("click", close);
+        backdrop?.addEventListener("click", close);
+
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") close();
+        });
+
+        if (openFirst) {
+          const first = document.querySelector("button[data-src]");
+          openFirst.addEventListener("click", () => {
+            if (first) open(first.dataset.src, first.dataset.name);
+          });
+        }
+      </script>
     </main>
   </body>
 </html>

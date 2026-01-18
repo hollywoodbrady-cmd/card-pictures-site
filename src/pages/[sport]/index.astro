@@ -17,47 +17,119 @@ export async function getStaticPaths() {
 }
 
 const { sport } = Astro.params;
+
 const sportFolderMap: Record<string, string> = {
   baseball: "baseball",
-  basketball: "Basketball",
+  basketball: "Basketball", // repo folder casing
   football: "football",
 };
 
-const sportFolder = sportFolderMap[sport] ?? sport;
-const sportDir = path.join(process.cwd(), "public", "cards", sportFolder);
-
+const folder = sportFolderMap[sport] ?? sport;
+const sportDir = path.join(process.cwd(), "public", "cards", folder);
 
 const entries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
-let sets = entries.filter((e) => e.isDirectory()).map((e) => e.name);
-sets.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+const setDirs = entries.filter((e) => e.isDirectory()).map((e) => e.name);
+setDirs.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+// Build "set cards" with cover + count
+type SetCard = { set: string; coverUrl: string | null; count: number };
+const sets: SetCard[] = [];
+
+for (const set of setDirs) {
+  const setPath = path.join(sportDir, set);
+  const files = await fs.readdir(setPath).catch(() => []);
+  const images = files.filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f));
+  images.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+  sets.push({
+    set,
+    count: images.length,
+    coverUrl: images.length ? `/cards/${folder}/${set}/${images[0]}` : null,
+  });
+}
+
+const title = `${niceName(sport)} Sets`;
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>{niceName(sport)} Sets</title>
+    <title>{title}</title>
   </head>
+
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
     <main class="mx-auto max-w-6xl px-4 py-10">
-      <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">← Back</a>
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">← Home</a>
+          <span class="text-zinc-700">/</span>
+          <span class="text-sm text-zinc-300">{niceName(sport)}</span>
+        </div>
 
-      <h1 class="mt-3 text-3xl font-semibold tracking-tight">{niceName(sport)}</h1>
-      <p class="mt-2 text-zinc-300">Choose a set.</p>
+        <div class="hidden sm:flex items-center gap-2">
+          <a href="/baseball/" class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${sport === "baseball" ? "bg-zinc-900/60" : "bg-zinc-950"}`}>⚾ Baseball</a>
+          <a href="/basketball/" class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${sport === "basketball" ? "bg-zinc-900/60" : "bg-zinc-950"}`}>🏀 Basketball</a>
+          <a href="/football/" class={`text-sm px-3 py-1.5 rounded-full ring-1 ring-zinc-800 hover:ring-zinc-600 ${sport === "football" ? "bg-zinc-900/60" : "bg-zinc-950"}`}>🏈 Football</a>
+        </div>
+      </div>
+
+      <div class="mt-8 rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-7 overflow-hidden relative">
+        <div class="absolute -top-20 -right-16 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl"></div>
+        <div class="absolute -bottom-16 -left-10 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
+
+        <h1 class="text-4xl font-semibold tracking-tight">{niceName(sport)}</h1>
+        <p class="mt-2 text-zinc-300">Choose a set to view your cards.</p>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200">
+            {sets.length} set{sets.length === 1 ? "" : "s"}
+          </span>
+          <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200">
+            Folder: <span class="text-zinc-300">public/cards/{folder}/</span>
+          </span>
+        </div>
+      </div>
 
       {sets.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
-          No sets found. Add folders under <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/{sport}/</code>
+          No sets found. Add folders under{" "}
+          <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/{folder}/</code>
         </div>
       ) : (
         <section class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {sets.map((set) => (
+          {sets.map((s) => (
             <a
-              href={`/${sport}/${set}/`}
-              class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-5"
+              href={`/${sport}/${s.set}/`}
+              class="group rounded-3xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition overflow-hidden"
+              title={niceName(s.set)}
             >
-              <div class="text-lg font-semibold">{niceName(set)}</div>
-              <div class="mt-1 text-sm text-zinc-300">View cards →</div>
+              <div class="relative aspect-[16/10] bg-zinc-900/40 overflow-hidden">
+                {s.coverUrl ? (
+                  <img
+                    src={s.coverUrl}
+                    alt={`${niceName(s.set)} cover`}
+                    loading="lazy"
+                    class="h-full w-full object-cover opacity-90 group-hover:opacity-100 group-hover:scale-[1.03] transition"
+                  />
+                ) : (
+                  <div class="h-full w-full flex items-center justify-center text-zinc-400">
+                    No cover image
+                  </div>
+                )}
+                <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-zinc-950/10 to-transparent"></div>
+
+                <div class="absolute bottom-3 left-3 flex gap-2">
+                  <span class="rounded-full bg-zinc-950/70 ring-1 ring-zinc-800 px-3 py-1 text-xs text-zinc-200">
+                    {s.count} card{s.count === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
+
+              <div class="p-5">
+                <div class="text-lg font-semibold tracking-tight">{niceName(s.set)}</div>
+                <div class="mt-1 text-sm text-zinc-300">View cards →</div>
+              </div>
             </a>
           ))}
         </section>

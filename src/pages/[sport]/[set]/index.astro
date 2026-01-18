@@ -28,7 +28,15 @@ export async function getStaticPaths() {
 }
 
 const { sport, set } = Astro.params;
-const setDir = path.join(process.cwd(), "public", "cards", sport, set);
+const sportFolderMap: Record<string, string> = {
+  baseball: "baseball",
+  basketball: "Basketball",
+  football: "football",
+};
+
+const sportFolder = sportFolderMap[sport] ?? sport;
+const setDir = path.join(process.cwd(), "public", "cards", sportFolder, set);
+
 
 const files = await fs.readdir(setDir).catch(() => []);
 let images = files.filter((f) => IMG_RE.test(f));

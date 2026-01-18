@@ -1,107 +1,106 @@
 ---
-const title = "BradyRip Card Vault";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const cardsDir = path.join(process.cwd(), "public", "cards");
+
+let files: string[] = [];
+try {
+  files = await fs.readdir(cardsDir);
+} catch {
+  files = [];
+}
+
+const imageFiles = files
+  .filter((f) => /\.(png|jpe?g|webp|gif)$/i.test(f))
+  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+function displayName(file: string) {
+  // Turn "2024-topps-update-us123-corbin-carroll.webp" into "2024 topps update us123 corbin carroll"
+  return file
+    .replace(/\.(png|jpe?g|webp|gif)$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>{title}</title>
+    <title>My Card Gallery</title>
   </head>
 
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
     <main class="mx-auto max-w-6xl px-4 py-10">
       <header class="mb-8">
-        <h1 class="text-3xl font-semibold tracking-tight">{title}</h1>
-        <p class="mt-2 text-zinc-300">Search, filter, and click a card for details.</p>
+        <h1 class="text-3xl font-semibold tracking-tight">My Card Gallery</h1>
+        <p class="mt-2 text-zinc-300">
+          Upload photos to <code class="rounded bg-zinc-900 px-2 py-1">public/cards</code> and push to update.
+        </p>
       </header>
 
-      <section class="mb-6 grid gap-3 md:grid-cols-4">
-        <input id="q"
-          class="rounded-xl bg-zinc-900 px-4 py-3 outline-none ring-1 ring-zinc-800 focus:ring-2 focus:ring-zinc-500 md:col-span-2"
-          placeholder="Search player, set, team, parallel..." />
-
-        <select id="year" class="rounded-xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
-          <option value="">All years</option>
-        </select>
-
-        <select id="rookie" class="rounded-xl bg-zinc-900 px-4 py-3 ring-1 ring-zinc-800">
-          <option value="">All</option>
-          <option value="true">Rookie</option>
-          <option value="false">Non-rookie</option>
-        </select>
+      <section class="mb-6">
+        <input
+          id="q"
+          class="w-full rounded-xl bg-zinc-900 px-4 py-3 outline-none ring-1 ring-zinc-800 focus:ring-2 focus:ring-zinc-500"
+          placeholder="Search (uses filename)… e.g. ‘topps’, ‘carroll’, ‘gold’, ‘us123’"
+        />
+        <div class="mt-2 text-sm text-zinc-400">
+          Showing <span id="count">{imageFiles.length}</span> images
+        </div>
       </section>
 
-      <section id="grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4"></section>
+      <section id="grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {imageFiles.map((file) => (
+          <button
+            class="card group text-left rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 overflow-hidden"
+            data-name={displayName(file).toLowerCase()}
+            data-src={`/cards/${file}`}
+          >
+            <div class="aspect-square bg-zinc-900">
+              <img
+                src={`/cards/${file}`}
+                alt={displayName(file)}
+                class="h-full w-full object-cover group-hover:scale-[1.02] transition"
+                loading="lazy"
+              />
+            </div>
+            <div class="p-3">
+              <div class="font-medium leading-tight">{displayName(file)}</div>
+            </div>
+          </button>
+        ))}
+      </section>
     </main>
 
+    <!-- Modal -->
     <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/70 p-4">
       <div class="w-full max-w-4xl rounded-2xl bg-zinc-950 ring-1 ring-zinc-800">
         <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
-          <div>
-            <div id="mTitle" class="text-lg font-semibold"></div>
-            <div id="mMeta" class="text-sm text-zinc-300"></div>
-          </div>
+          <div id="mTitle" class="text-lg font-semibold"></div>
           <button id="mClose" class="rounded-lg bg-zinc-900 px-3 py-2 ring-1 ring-zinc-800">Close</button>
         </div>
-        <div class="grid gap-4 p-5 md:grid-cols-2">
-          <img id="mFront" class="w-full rounded-xl ring-1 ring-zinc-800" />
-          <img id="mBack" class="w-full rounded-xl ring-1 ring-zinc-800 hidden md:block" />
-          <div class="md:col-span-2 text-sm text-zinc-300">
-            <div id="mNotes"></div>
-          </div>
+        <div class="p-5">
+          <img id="mImg" class="w-full rounded-xl ring-1 ring-zinc-800" />
         </div>
       </div>
     </div>
 
     <script type="module">
-      const grid = document.getElementById("grid");
       const q = document.getElementById("q");
-      const year = document.getElementById("year");
-      const rookie = document.getElementById("rookie");
+      const cards = Array.from(document.querySelectorAll(".card"));
+      const count = document.getElementById("count");
 
       const modal = document.getElementById("modal");
       const mTitle = document.getElementById("mTitle");
-      const mMeta = document.getElementById("mMeta");
-      const mFront = document.getElementById("mFront");
-      const mBack = document.getElementById("mBack");
-      const mNotes = document.getElementById("mNotes");
+      const mImg = document.getElementById("mImg");
       const mClose = document.getElementById("mClose");
 
-      let CARDS = [];
-
-      function uniqYears(cards) {
-        return [...new Set(cards.map(c => c.year).filter(Boolean))].sort((a,b)=>b-a);
-      }
-
-      function matches(card) {
-        const text = (q.value || "").trim().toLowerCase();
-        const y = year.value;
-        const r = rookie.value;
-
-        if (y && String(card.year) !== y) return false;
-        if (r && String(!!card.rookie) !== r) return false;
-
-        if (!text) return true;
-        const hay = [card.player, card.set, card.team, card.parallel, card.cardNumber]
-          .filter(Boolean).join(" ").toLowerCase();
-
-        return hay.includes(text);
-      }
-
-      function openModal(card) {
-        mTitle.textContent = card.player || card.id;
-        mMeta.textContent =
-          `${card.year || ""} ${card.set || ""} • ${card.team || ""} • ${card.parallel || ""}${card.numberedTo ? " /" + card.numberedTo : ""}`.trim();
-
-        mFront.src = card.frontUrl || card.thumbUrl || "";
-        if (card.backUrl) {
-          mBack.src = card.backUrl;
-          mBack.classList.remove("hidden");
-        } else {
-          mBack.classList.add("hidden");
-        }
-        mNotes.textContent = card.notes || "";
+      function openModal(title, src) {
+        mTitle.textContent = title;
+        mImg.src = src;
         modal.classList.remove("hidden");
         modal.classList.add("flex");
       }
@@ -109,49 +108,35 @@ const title = "BradyRip Card Vault";
       function closeModal() {
         modal.classList.add("hidden");
         modal.classList.remove("flex");
+        mImg.src = "";
       }
 
-      function render() {
-        grid.innerHTML = "";
-        const filtered = CARDS.filter(matches);
+      cards.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const src = btn.dataset.src;
+          const title = btn.querySelector("div.font-medium")?.textContent || "Card";
+          openModal(title, src);
+        });
+      });
 
-        for (const card of filtered) {
-          const el = document.createElement("button");
-          el.className = "group text-left rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 overflow-hidden";
-          el.innerHTML = `
-            <div class="aspect-square bg-zinc-900">
-              <img src="${card.thumbUrl || card.frontUrl || ""}"
-                   class="h-full w-full object-cover group-hover:scale-[1.02] transition"
-                   loading="lazy" />
-            </div>
-            <div class="p-3">
-              <div class="font-medium leading-tight">${card.player || ""}</div>
-              <div class="mt-1 text-xs text-zinc-300">${card.year || ""} ${card.set || ""}</div>
-              <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
-                ${card.rookie ? `<span class="rounded-full bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">RC</span>` : ""}
-                ${card.parallel ? `<span class="rounded-full bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">${card.parallel}${card.numberedTo ? " /" + card.numberedTo : ""}</span>` : ""}
-              </div>
-            </div>
-          `;
-          el.addEventListener("click", () => openModal(card));
-          grid.appendChild(el);
-        }
-      }
-
-      [q, year, rookie].forEach(x => x.addEventListener("input", render));
       mClose.addEventListener("click", closeModal);
       modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
 
-      const res = await fetch("/data/cards.json", { cache: "no-store" });
-      CARDS = await res.json();
+      function render() {
+        const term = (q.value || "").trim().toLowerCase();
+        let shown = 0;
 
-      for (const y of uniqYears(CARDS)) {
-        const opt = document.createElement("option");
-        opt.value = String(y);
-        opt.textContent = String(y);
-        year.appendChild(opt);
+        cards.forEach((c) => {
+          const name = c.dataset.name || "";
+          const ok = !term || name.includes(term);
+          c.style.display = ok ? "" : "none";
+          if (ok) shown++;
+        });
+
+        count.textContent = String(shown);
       }
 
+      q.addEventListener("input", render);
       render();
     </script>
   </body>

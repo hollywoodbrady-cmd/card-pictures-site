@@ -86,26 +86,27 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
       ) : (
         <>
           {/* THUMB GRID (small) */}
-          <section class="mt-6 grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8">
-            {images.map((img, i) => (
-              <button
-                type="button"
-                class="group relative rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
-                data-open={i}
-                aria-label={`Open ${img}`}
-              >
-                {/* fixed thumb size so cards don't dominate */}
-                <div class="aspect-[3/4] bg-zinc-900/30">
-                  <img
-                    src={`/cards/${folder}/${set}/${img}`}
-                    alt={img}
-                    loading="lazy"
-                    class="h-full w-full object-cover group-hover:scale-[1.02] transition"
-                  />
-                </div>
-              </button>
-            ))}
-          </section>
+          <section class="mt-6 flex flex-wrap gap-3">
+  {images.map((img, i) => (
+    <button
+      type="button"
+      class="group w-[130px] sm:w-[145px] md:w-[160px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
+      data-open={i}
+      aria-label={`Open ${img}`}
+      title={img}
+    >
+      <div class="aspect-[3/4] bg-zinc-900/30">
+        <img
+          src={`/cards/${folder}/${set}/${img}`}
+          alt={img}
+          loading="lazy"
+          class="h-full w-full object-contain p-2 group-hover:scale-[1.02] transition"
+        />
+      </div>
+    </button>
+  ))}
+</section>
+
 
           {/* LIGHTBOX */}
           <div

@@ -1,143 +1,51 @@
 ---
-import fs from "node:fs/promises";
-import path from "node:path";
-
-const cardsDir = path.join(process.cwd(), "public", "cards");
-
-let files: string[] = [];
-try {
-  files = await fs.readdir(cardsDir);
-} catch {
-  files = [];
-}
-
-const imageFiles = files
-  .filter((f) => /\.(png|jpe?g|webp|gif)$/i.test(f))
-  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
-
-function displayName(file: string) {
-  // Turn "2024-topps-update-us123-corbin-carroll.webp" into "2024 topps update us123 corbin carroll"
-  return file
-    .replace(/\.(png|jpe?g|webp|gif)$/i, "")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+const sports = [
+  { slug: "baseball", name: "Baseball", emoji: "⚾" },
+  { slug: "basketball", name: "Basketball", emoji: "🏀" },
+  { slug: "football", name: "Football", emoji: "🏈" },
+];
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>My Card Gallery</title>
+    <title>Card Vault</title>
   </head>
 
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
-    <main class="mx-auto max-w-6xl px-4 py-10">
-      <header class="mb-8">
-        <h1 class="text-3xl font-semibold tracking-tight">My Card Gallery</h1>
-        <p class="mt-2 text-zinc-300">
-          Upload photos to <code class="rounded bg-zinc-900 px-2 py-1">public/cards</code> and push to update.
+    <main class="mx-auto max-w-6xl px-4 py-12">
+      <header class="mb-10">
+        <div class="inline-flex items-center gap-2 rounded-full bg-zinc-900/60 px-4 py-2 ring-1 ring-zinc-800">
+          <span class="text-sm text-zinc-200">Public Card Gallery</span>
+        </div>
+        <h1 class="mt-5 text-4xl font-semibold tracking-tight">
+          BradyRip Card Vault
+        </h1>
+        <p class="mt-3 max-w-2xl text-zinc-300">
+          Choose a sport, then choose a set. No database—this site updates automatically based on your folders and images.
         </p>
       </header>
 
-      <section class="mb-6">
-        <input
-          id="q"
-          class="w-full rounded-xl bg-zinc-900 px-4 py-3 outline-none ring-1 ring-zinc-800 focus:ring-2 focus:ring-zinc-500"
-          placeholder="Search (uses filename)… e.g. ‘topps’, ‘carroll’, ‘gold’, ‘us123’"
-        />
-        <div class="mt-2 text-sm text-zinc-400">
-          Showing <span id="count">{imageFiles.length}</span> images
-        </div>
-      </section>
-
-      <section id="grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {imageFiles.map((file) => (
-          <button
-            class="card group text-left rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 overflow-hidden"
-            data-name={displayName(file).toLowerCase()}
-            data-src={`/cards/${file}`}
+      <section class="grid gap-5 md:grid-cols-3">
+        {sports.map((s) => (
+          <a
+            href={`/${s.slug}/`}
+            class="group rounded-3xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition overflow-hidden"
           >
-            <div class="aspect-square bg-zinc-900">
-              <img
-                src={`/cards/${file}`}
-                alt={displayName(file)}
-                class="h-full w-full object-cover group-hover:scale-[1.02] transition"
-                loading="lazy"
-              />
+            <div class="p-6">
+              <div class="text-4xl">{s.emoji}</div>
+              <div class="mt-4 text-xl font-semibold">{s.name}</div>
+              <div class="mt-1 text-sm text-zinc-300">Browse sets →</div>
             </div>
-            <div class="p-3">
-              <div class="font-medium leading-tight">{displayName(file)}</div>
-            </div>
-          </button>
+            <div class="h-1 bg-gradient-to-r from-zinc-700 via-zinc-500 to-zinc-700 opacity-0 group-hover:opacity-100 transition"></div>
+          </a>
         ))}
       </section>
+
+      <footer class="mt-12 text-sm text-zinc-500">
+        Tip: Add images under <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/&lt;sport&gt;/&lt;set&gt;</code> and push.
+      </footer>
     </main>
-
-    <!-- Modal -->
-    <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/70 p-4">
-      <div class="w-full max-w-4xl rounded-2xl bg-zinc-950 ring-1 ring-zinc-800">
-        <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
-          <div id="mTitle" class="text-lg font-semibold"></div>
-          <button id="mClose" class="rounded-lg bg-zinc-900 px-3 py-2 ring-1 ring-zinc-800">Close</button>
-        </div>
-        <div class="p-5">
-          <img id="mImg" class="w-full rounded-xl ring-1 ring-zinc-800" />
-        </div>
-      </div>
-    </div>
-
-    <script type="module">
-      const q = document.getElementById("q");
-      const cards = Array.from(document.querySelectorAll(".card"));
-      const count = document.getElementById("count");
-
-      const modal = document.getElementById("modal");
-      const mTitle = document.getElementById("mTitle");
-      const mImg = document.getElementById("mImg");
-      const mClose = document.getElementById("mClose");
-
-      function openModal(title, src) {
-        mTitle.textContent = title;
-        mImg.src = src;
-        modal.classList.remove("hidden");
-        modal.classList.add("flex");
-      }
-
-      function closeModal() {
-        modal.classList.add("hidden");
-        modal.classList.remove("flex");
-        mImg.src = "";
-      }
-
-      cards.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const src = btn.dataset.src;
-          const title = btn.querySelector("div.font-medium")?.textContent || "Card";
-          openModal(title, src);
-        });
-      });
-
-      mClose.addEventListener("click", closeModal);
-      modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
-
-      function render() {
-        const term = (q.value || "").trim().toLowerCase();
-        let shown = 0;
-
-        cards.forEach((c) => {
-          const name = c.dataset.name || "";
-          const ok = !term || name.includes(term);
-          c.style.display = ok ? "" : "none";
-          if (ok) shown++;
-        });
-
-        count.textContent = String(shown);
-      }
-
-      q.addEventListener("input", render);
-      render();
-    </script>
   </body>
 </html>

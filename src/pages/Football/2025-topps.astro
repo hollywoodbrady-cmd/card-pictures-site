@@ -1,0 +1,170 @@
+---
+import fs from "node:fs/promises";
+import path from "node:path";
+
+function niceName(slug: string) {
+  return slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const IMG_RE = /\.(png|jpe?g|webp|gif)$/i;
+
+export async function getStaticPaths() {
+  const base = path.join(process.cwd(), "public", "cards");
+  let sports: string[] = [];
+  try {
+    const sportEntries = await fs.readdir(base, { withFileTypes: true });
+    sports = sportEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+  } catch {
+    sports = [];
+  }
+
+  const paths: { params: { sport: string; set: string } }[] = [];
+  for (const sport of sports) {
+    const sportDir = path.join(base, sport);
+    try {
+      const setEntries = await fs.readdir(sportDir, { withFileTypes: true });
+      const sets = setEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+      for (const set of sets) paths.push({ params: { sport, set } });
+    } catch {}
+  }
+  return paths;
+}
+
+const { sport, set } = Astro.params;
+const setDir = path.join(process.cwd(), "public", "cards", sport, set);
+
+let images: string[] = [];
+try {
+  const files = await fs.readdir(setDir);
+  images = files.filter((f) => IMG_RE.test(f));
+} catch {
+  images = [];
+}
+
+images.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{niceName(sport)} • {niceName(set)}</title>
+  </head>
+
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <header class="mb-6">
+        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">← Back to sets</a>
+        <h1 class="mt-3 text-3xl font-semibold tracking-tight">
+          {niceName(sport)} • {niceName(set)}
+        </h1>
+
+        <div class="mt-4">
+          <input
+            id="q"
+            class="w-full rounded-xl bg-zinc-900 px-4 py-3 outline-none ring-1 ring-zinc-800 focus:ring-2 focus:ring-zinc-500"
+            placeholder="Search within this set (filename)…"
+          />
+          <div class="mt-2 text-sm text-zinc-400">
+            Showing <span id="count">{images.length}</span> images
+          </div>
+        </div>
+      </header>
+
+      {images.length === 0 ? (
+        <div class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 p-6 text-zinc-300">
+          No images found in <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/{sport}/{set}</code>
+        </div>
+      ) : (
+        <section id="grid" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {images.map((file) => (
+            <button
+              class="card group text-left rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 overflow-hidden"
+              data-name={file.toLowerCase()}
+              data-src={`/cards/${sport}/${set}/${file}`}
+            >
+              <div class="aspect-square bg-zinc-900">
+                <img
+                  src={`/cards/${sport}/${set}/${file}`}
+                  alt={file}
+                  class="h-full w-full object-cover group-hover:scale-[1.02] transition"
+                  loading="lazy"
+                />
+              </div>
+              <div class="p-3">
+                <div class="text-xs text-zinc-300 break-words">
+                  {file.replace(IMG_RE, "").replace(/[_-]+/g, " ")}
+                </div>
+              </div>
+            </button>
+          ))}
+        </section>
+      )}
+    </main>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black/70 p-4">
+      <div class="w-full max-w-4xl rounded-2xl bg-zinc-950 ring-1 ring-zinc-800">
+        <div class="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
+          <div id="mTitle" class="text-lg font-semibold"></div>
+          <button id="mClose" class="rounded-lg bg-zinc-900 px-3 py-2 ring-1 ring-zinc-800">Close</button>
+        </div>
+        <div class="p-5">
+          <img id="mImg" class="w-full rounded-xl ring-1 ring-zinc-800" />
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      const q = document.getElementById("q");
+      const cards = Array.from(document.querySelectorAll(".card"));
+      const count = document.getElementById("count");
+
+      const modal = document.getElementById("modal");
+      const mTitle = document.getElementById("mTitle");
+      const mImg = document.getElementById("mImg");
+      const mClose = document.getElementById("mClose");
+
+      function openModal(title, src) {
+        mTitle.textContent = title;
+        mImg.src = src;
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }
+      function closeModal() {
+        modal.classList.add("hidden");
+        modal.classList.remove("flex");
+        mImg.src = "";
+      }
+
+      cards.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const src = btn.dataset.src;
+          const title = btn.querySelector("div.text-xs")?.textContent || "Card";
+          openModal(title, src);
+        });
+      });
+
+      mClose.addEventListener("click", closeModal);
+      modal.addEventListener("click", (e) => { if (e.target === modal) closeModal(); });
+
+      function render() {
+        const term = (q.value || "").trim().toLowerCase();
+        let shown = 0;
+        cards.forEach((c) => {
+          const name = c.dataset.name || "";
+          const ok = !term || name.includes(term);
+          c.style.display = ok ? "" : "none";
+          if (ok) shown++;
+        });
+        count.textContent = String(shown);
+      }
+      q.addEventListener("input", render);
+      render();
+    </script>
+  </body>
+</html>

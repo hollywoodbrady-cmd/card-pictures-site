@@ -10,14 +10,14 @@ function niceName(slug: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Map URL sport -> actual folder name on disk (Cloudflare/Linux is case-sensitive)
-const sportFolderMap: Record<string, string> = {
-  baseball: "baseball",
-  basketball: "Basketball", // IMPORTANT: your repo currently uses capital B
-  football: "football",
-};
-
 export async function getStaticPaths() {
+  // Put the map INSIDE getStaticPaths so it always exists during build
+  const sportFolderMap: Record<string, string> = {
+    baseball: "baseball",
+    basketball: "Basketball", // your repo folder (capital B)
+    football: "football",
+  };
+
   const sports = ["baseball", "basketball", "football"];
   const paths: { params: { sport: string; set: string } }[] = [];
 
@@ -38,6 +38,13 @@ export async function getStaticPaths() {
 
 const sport = (Astro.params.sport ?? "").toString();
 const set = (Astro.params.set ?? "").toString();
+
+// Also keep the map here for runtime rendering
+const sportFolderMap: Record<string, string> = {
+  baseball: "baseball",
+  basketball: "Basketball",
+  football: "football",
+};
 
 const folder = sportFolderMap[sport] ?? sport;
 

@@ -11,10 +11,9 @@ function niceName(slug: string) {
 }
 
 export async function getStaticPaths() {
-  const base = path.join(process.cwd(), "public", "cards");
-  const entries = await fs.readdir(base, { withFileTypes: true }).catch(() => []);
-  const sports = entries.filter((e) => e.isDirectory()).map((e) => e.name);
-  return sports.map((sport) => ({ params: { sport } }));
+  return ["baseball", "basketball", "football"].map((sport) => ({
+    params: { sport },
+  }));
 }
 
 const { sport } = Astro.params;

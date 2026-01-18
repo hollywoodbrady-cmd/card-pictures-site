@@ -1,0 +1,114 @@
+---
+import fs from "node:fs/promises";
+import path from "node:path";
+
+const IMG_RE = /\.(png|jpe?g|webp|gif)$/i;
+
+function niceName(slug: string) {
+  return slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export async function getStaticPaths() {
+  const base = path.join(process.cwd(), "public", "cards");
+  const sportEntries = await fs.readdir(base, { withFileTypes: true }).catch(() => []);
+  const sports = sportEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+
+  const paths: { params: { sport: string; set: string } }[] = [];
+  for (const sport of sports) {
+    const sportDir = path.join(base, sport);
+    const setEntries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
+    const sets = setEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+    for (const set of sets) paths.push({ params: { sport, set } });
+  }
+  return paths;
+}
+
+const { sport, set } = Astro.params;
+const setDir = path.join(process.cwd(), "public", "cards", sport, set);
+
+const files = await fs.readdir(setDir).catch(() => []);
+let images = files.filter((f) => IMG_RE.test(f));
+images.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{niceName(sport)} • {niceName(set)}</title>
+  </head>
+
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">← Back to sets</a>
+
+      <h1 class="mt-3 text-3xl font-semibold tracking-tight">
+        {niceName(sport)} • {niceName(set)}
+      </h1>
+
+      <div class="mt-4">
+        <input
+          id="q"
+          class="w-full rounded-xl bg-zinc-900 px-4 py-3 outline-none ring-1 ring-zinc-800 focus:ring-2 focus:ring-zinc-500"
+          placeholder="Search within this set (filename)…"
+        />
+        <div class="mt-2 text-sm text-zinc-400">
+          Showing <span id="count">{images.length}</span> images
+        </div>
+      </div>
+
+      {images.length === 0 ? (
+        <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
+          No images found in <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">public/cards/{sport}/{set}</code>
+        </div>
+      ) : (
+        <section id="grid" class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {images.map((file) => (
+            <a
+              class="card block rounded-2xl overflow-hidden ring-1 ring-zinc-800 hover:ring-zinc-600 transition"
+              data-name={file.toLowerCase()}
+              href={`/cards/${sport}/${set}/${file}`}
+              target="_blank"
+            >
+              <div class="aspect-square bg-zinc-900">
+                <img
+                  src={`/cards/${sport}/${set}/${file}`}
+                  alt={file}
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+              <div class="p-3 text-xs text-zinc-300 break-words">
+                {file.replace(IMG_RE, "").replace(/[_-]+/g, " ")}
+              </div>
+            </a>
+          ))}
+        </section>
+      )}
+    </main>
+
+    <script type="module">
+      const q = document.getElementById("q");
+      const cards = Array.from(document.querySelectorAll(".card"));
+      const count = document.getElementById("count");
+
+      function render() {
+        const term = (q.value || "").trim().toLowerCase();
+        let shown = 0;
+        cards.forEach((c) => {
+          const name = c.dataset.name || "";
+          const ok = !term || name.includes(term);
+          c.style.display = ok ? "" : "none";
+          if (ok) shown++;
+        });
+        count.textContent = String(shown);
+      }
+      q?.addEventListener("input", render);
+      render();
+    </script>
+  </body>
+</html>

@@ -31,11 +31,18 @@ function inferFromFilename(filename: string) {
   const parts = base.split(/[-_]+/g).filter(Boolean);
   const lower = base.toLowerCase();
 
-  // tags
-  const rc = /\brc\b|rookie/i.test(lower);
-  const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
-  const patch = /\bpatch\b|relic|jersey/i.test(lower);
-  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower);
+  // tags (underscore-safe; "_" is a word char so \b won't work around __rc__)
+  const rc = /(?:^|[-_])rc(?:[-_]|$)|rookie/i.test(lower);
+
+  const auto =
+    /(?:^|[-_])auto(?:[-_]|$)|autograph|signature|(?:^|[-_])sig(?:[-_]|$)/i.test(lower);
+
+  const patch =
+    /(?:^|[-_])patch(?:[-_]|$)|relic|jersey/i.test(lower);
+
+  const parallel =
+    /(?:^|[-_])parallel(?:[-_]|$)|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower);
+
 
   // numbered patterns: "12of25" or "12/25" in filename
   let numbered: string | null = null;

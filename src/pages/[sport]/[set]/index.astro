@@ -10,8 +10,6 @@ function niceName(slug: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const cardsRoot = path.join(process.cwd(), "public", "cards");
-
 type Tag = "rc" | "auto" | "patch" | "numbered" | "parallel";
 type CardMeta = {
   file: string;
@@ -73,7 +71,6 @@ function inferMetaFromFilename(file: string, sport: string): {
 
   const afterSport = sportIdx >= 0 ? tokens.slice(sportIdx + 1) : tokens.slice();
 
-  // numbered patterns like 25of99 or 25/99 in the RAW string
   let numberedText: string | null = null;
   const m1 = raw.match(/(\d+)\s*of\s*(\d+)/i);
   const m2 = raw.match(/(\d+)\s*\/\s*(\d+)/);
@@ -91,7 +88,6 @@ function inferMetaFromFilename(file: string, sport: string): {
   const parallelHints = ["parallel", "prizm", "refractor", "chrome", "holo", "foil", "wave", "scope", "mosaic"];
   if (parallelHints.some((p) => has(p))) tags.push("parallel");
 
-  // player tokens: from afterSport until we hit year/tag-ish tokens
   const playerTokens: string[] = [];
   for (const t of afterSport) {
     if (isYear(t)) break;
@@ -107,10 +103,12 @@ function inferMetaFromFilename(file: string, sport: string): {
 }
 
 /**
- * IMPORTANT: put all helpers used by getStaticPaths INSIDE it
- * to avoid "not defined" errors during the build.
+ * BUILD-TIME: define EVERYTHING used here inside getStaticPaths
+ * to avoid Astro scope issues.
  */
 export async function getStaticPaths() {
+  const cardsRoot = path.join(process.cwd(), "public", "cards");
+
   async function resolveSportFolderBuild(sport: string) {
     const entries = await fs.readdir(cardsRoot, { withFileTypes: true }).catch(() => []);
     const match = entries.find(
@@ -137,7 +135,9 @@ export async function getStaticPaths() {
   return paths;
 }
 
-// ----- Runtime (page render) -----
+// ----- RUNTIME (page render) -----
+const cardsRoot = path.join(process.cwd(), "public", "cards");
+
 async function resolveSportFolder(sport: string) {
   const entries = await fs.readdir(cardsRoot, { withFileTypes: true }).catch(() => []);
   const match = entries.find(
@@ -315,7 +315,6 @@ const title = `${niceName(set)} • ${niceName(sport)}`;
           color: white;
         }
 
-        /* Smaller tiles + less padding (fixes “too much padding”) */
         .tile {
           width: 170px;
           text-align: left;
@@ -333,7 +332,7 @@ const title = `${niceName(set)} • ${niceName(sport)}`;
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 6px; /* tighter */
+          padding: 6px;
         }
         .img {
           max-height: 100%;
@@ -361,7 +360,6 @@ const title = `${niceName(set)} • ${niceName(sport)}`;
           color: rgba(212, 212, 216, 1);
         }
 
-        /* Lightbox */
         .lb.hidden { display: none; }
         .lb { position: fixed; inset: 0; z-index: 50; }
         .lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
@@ -424,7 +422,6 @@ const title = `${niceName(set)} • ${niceName(sport)}`;
         .lb-link:hover { color: white; }
       </style>
 
-      <!-- Data for client-side search/lightbox -->
       <script is:inline>
         const CARDS = {JSON.stringify(cards)};
       </script>
@@ -471,7 +468,6 @@ const title = `${niceName(set)} • ${niceName(sport)}`;
           });
         });
 
-        // Lightbox
         const lb = document.getElementById("lb");
         const lbImg = document.getElementById("lbImg");
         const lbTitle = document.getElementById("lbTitle");

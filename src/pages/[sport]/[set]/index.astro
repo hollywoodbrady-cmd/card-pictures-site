@@ -11,45 +11,203 @@ function niceName(slug: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+type MetaEntry = {
+  player?: string;
+  team?: string;
+  tags?: string[];
+  parallel?: string | null;
+  numbered?: string | null; // e.g. "/99" or "12/99"
+  notes?: string;
+};
+
+type Card = {
+  file: string;
+  url: string;
+  player: string;
+  team: string | null;
+  tags: string[];
+  parallel: string | null;
+  numbered: string | null;
+};
+
+function tokenizeFilename(file: string) {
+  return file
+    .replace(/\.(webp|png|jpe?g|gif)$/i, "")
+    .split("-")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+function parseNumbered(tokens: string[]) {
+  // supports: "12of99", "12-99" won't appear because split on "-", so mostly "12of99" or "99"
+  const joined = tokens.join("-");
+  const m1 = joined.match(/(\d{1,3})of(\d{1,3})/i); // 12of99
+  if (m1) return `${m1[1]}/${m1[2]}`;
+  const m2 = joined.match(/\/(\d{1,3})/); // already contains /99 (rare in filenames)
+  if (m2) return `/${m2[1]}`;
+  return null;
+}
+
+function parseCardInfo(file: string, sport: string, set: string) {
+  const tokens = tokenizeFilename(file);
+
+  // remove leading/trailing year like 2025 ... 2025
+  if (tokens[0] && /^\d{4}$/.test(tokens[0])) tokens.shift();
+  if (tokens[tokens.length - 1] && /^\d{4}$/.test(tokens[tokens.length - 1])) tokens.pop();
+
+  // remove sport tokens if present
+  const sportTokens = sport.split("-").filter(Boolean);
+  for (const st of sportTokens) {
+    const idx = tokens.indexOf(st);
+    if (idx >= 0) tokens.splice(idx, 1);
+  }
+
+  // remove set tokens if present
+  const setTokens = set.split("-").filter(Boolean);
+  for (const st of setTokens) {
+    const idx = tokens.indexOf(st);
+    if (idx >= 0) tokens.splice(idx, 1);
+  }
+
+  const lower = tokens.map((t) => t.toLowerCase());
+
+  // tags & features (expand as you like)
+  const tagMap: Record<string, string> = {
+    rc: "RC",
+    rookie: "RC",
+    auto: "Auto",
+    autograph: "Auto",
+    patch: "Patch",
+    relic: "Relic",
+    jersey: "Relic",
+    numbered: "Numbered",
+    sp: "SP",
+    ssp: "SSP",
+  };
+
+  const knownFeatureWords = new Set([
+    "rc","rookie","auto","autograph","patch","relic","jersey","numbered","sp","ssp",
+    // common “parallel/insert-ish” words — these become Parallel if they appear
+    "silver","gold","black","red","blue","green","purple","orange","pink",
+    "holo","wave","prizm","mosaic","scope","refractor","chrome","foil",
+    "clutch","insert","parallel"
+  ]);
+
+  const tags: string[] = [];
+  for (const t of lower) {
+    if (tagMap[t]) tags.push(tagMap[t]);
+  }
+
+  const numbered = parseNumbered(lower);
+  if (numbered && !tags.includes("Numbered")) tags.push("Numbered");
+
+  // Split into player tokens vs “rest” tokens:
+  // everything before first known feature word => player
+  let splitAt = tokens.length;
+  for (let i = 0; i < lower.length; i++) {
+    if (knownFeatureWords.has(lower[i])) {
+      splitAt = i;
+      break;
+    }
+  }
+
+  const playerTokens = tokens.slice(0, splitAt);
+  const restTokens = tokens.slice(splitAt);
+
+  const player =
+    playerTokens.length ? niceName(playerTokens.join(" ")) : niceName(tokens.join(" "));
+
+  // infer parallel from rest tokens (if any)
+  const restPretty = restTokens.map((t) => niceName(t));
+  let parallel: string | null = null;
+  if (restPretty.length) {
+    // treat remaining words as a “parallel/insert name” unless they’re just feature words
+    const cleaned = restTokens.filter((t) => {
+      const tl = t.toLowerCase();
+      return !tagMap[tl] && !/^\d+$/.test(tl) && !/^\d{1,3}of\d{1,3}$/i.test(tl);
+    });
+    if (cleaned.length) parallel = niceName(cleaned.join(" "));
+  }
+
+  return { player, tags, numbered, parallel };
+}
+
+// --- routing + filesystem ---
 export async function getStaticPaths() {
-  const baseDir = path.join(process.cwd(), "public", "cards");
+  // If you still have any casing weirdness in repo history, you can map here:
+  const sportFolderMap: Record<string, string> = {
+    baseball: "baseball",
+    basketball: "basketball",
+    football: "football",
+  };
+
   const sports = ["baseball", "basketball", "football"];
   const paths: { params: { sport: string; set: string } }[] = [];
 
-  // Case-safe sport folder detection (Linux-friendly on Cloudflare)
-  const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
-  const sportFolder = (sport: string) =>
-    baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
-
   for (const sport of sports) {
-    const folder = sportFolder(sport);
-    const sportDir = path.join(baseDir, folder);
+    const folder = sportFolderMap[sport] ?? sport;
+    const sportDir = path.join(process.cwd(), "public", "cards", folder);
     const entries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
     const sets = entries.filter((e) => e.isDirectory()).map((e) => e.name);
-
     for (const set of sets) paths.push({ params: { sport, set } });
   }
-
   return paths;
 }
 
 const sport = (Astro.params.sport ?? "").toString();
 const set = (Astro.params.set ?? "").toString();
 
-// Case-safe folder for runtime render
-const baseDir = path.join(process.cwd(), "public", "cards");
-const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
-const folder =
-  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
+const sportFolderMap: Record<string, string> = {
+  baseball: "baseball",
+  basketball: "basketball",
+  football: "football",
+};
 
-const setDir = path.join(baseDir, folder, set);
+const folder = sportFolderMap[sport] ?? sport;
+const setDir = path.join(process.cwd(), "public", "cards", folder, set);
+
+// optional overrides file per set
+const metaPath = path.join(setDir, "cards.meta.json");
+let meta: Record<string, MetaEntry> = {};
+try {
+  const metaRaw = await fs.readFile(metaPath, "utf8");
+  meta = JSON.parse(metaRaw);
+} catch {
+  meta = {};
+}
 
 const files = await fs.readdir(setDir).catch(() => []);
-const images = files
+const imageFiles = files
   .filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f))
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-const title = `${niceName(sport)} • ${niceName(set)}`;
+const cards: Card[] = imageFiles.map((file) => {
+  const base = parseCardInfo(file, sport, set);
+  const override = meta[file] ?? {};
+
+  const tags = Array.from(
+    new Set([...(base.tags ?? []), ...((override.tags ?? []) as string[])])
+  );
+
+  const player = override.player ?? base.player;
+  const team = override.team ?? null;
+
+  const parallel = override.parallel ?? base.parallel ?? null;
+  const numbered = override.numbered ?? base.numbered ?? null;
+
+  return {
+    file,
+    url: `/cards/${folder}/${set}/${file}`,
+    player,
+    team,
+    tags,
+    parallel,
+    numbered,
+  };
+});
+
+const title = `${niceName(set)} • ${niceName(sport)}`;
+const logoUrl = "/brand/bradyrip.png"; // change if needed
 ---
 
 <html lang="en">
@@ -60,155 +218,280 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
   </head>
 
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
-    <main class="mx-auto max-w-6xl px-4 py-10">
+    <main class="mx-auto max-w-6xl px-4 py-8">
+      <!-- Top bar -->
       <div class="flex items-center justify-between gap-4">
-        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">
-          ← Back to {niceName(sport)} sets
-        </a>
+        <div class="flex items-center gap-3">
+          <a href="/" class="flex items-center gap-3 hover:opacity-90 transition">
+            <img src={logoUrl} alt="BradyRip" class="h-9 w-9 rounded-full ring-1 ring-zinc-800 object-cover" />
+            <div class="leading-tight">
+              <div class="text-sm font-semibold tracking-tight">BradyRip</div>
+              <div class="text-xs text-zinc-400">Card Gallery</div>
+            </div>
+          </a>
 
-        <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">Home</a>
+          <span class="hidden sm:inline text-zinc-700">/</span>
+          <a href={`/${sport}/`} class="hidden sm:inline text-sm text-zinc-300 hover:text-white transition">
+            {niceName(sport)}
+          </a>
+        </div>
+
+        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200 transition">
+          ← Back to sets
+        </a>
       </div>
 
-      <div class="mt-6">
+      <!-- Header -->
+      <div class="mt-6 rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-6 relative overflow-hidden">
+        <div class="absolute -top-20 -right-16 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl"></div>
+        <div class="absolute -bottom-16 -left-10 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
+
         <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
         <p class="mt-2 text-zinc-300">
-          {niceName(sport)} • {images.length} card{images.length === 1 ? "" : "s"}
+          {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
         </p>
-      </div>
 
-      {images.length === 0 ? (
-        <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
-          No images found in{" "}
-          <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-            public/cards/{folder}/{set}/
-          </code>
-        </div>
-      ) : (
-        <>
-          {/* THUMB GRID (small) */}
-          <section class="mt-6 flex flex-wrap gap-3">
-  {images.map((img, i) => (
-    <button
-      type="button"
-      class="group w-[130px] sm:w-[145px] md:w-[160px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
-      data-open={i}
-      aria-label={`Open ${img}`}
-      title={img}
-    >
-      <div class="aspect-[3/4] bg-zinc-900/30">
-        <img
-          src={`/cards/${folder}/${set}/${img}`}
-          alt={img}
-          loading="lazy"
-          class="h-full w-full object-contain p-2 group-hover:scale-[1.02] transition"
-        />
-      </div>
-    </button>
-  ))}
-</section>
-
-
-          {/* LIGHTBOX */}
-          <div
-            id="lightbox"
-            class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-4"
-            aria-hidden="true"
-          >
-            <div class="absolute inset-0" data-close></div>
-
-            <div class="relative w-full max-w-4xl">
-              <div class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                  <div class="text-sm text-zinc-300 truncate" id="lb-label"></div>
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    data-close
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <div class="bg-black/30">
-                  {/* Big view: contains inside, not full-screen huge */}
-                  <img
-                    id="lb-img"
-                    src=""
-                    alt=""
-                    class="w-full max-h-[80vh] object-contain"
-                  />
-                </div>
-
-                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    id="lb-prev"
-                  >
-                    ← Prev
-                  </button>
-                  <div class="text-xs text-zinc-400" id="lb-count"></div>
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    id="lb-next"
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            </div>
+        <!-- Controls -->
+        <div class="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
+          <div class="flex-1">
+            <input
+              id="q"
+              type="search"
+              placeholder="Search by player, team, tags, parallel, filename..."
+              class="w-full rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+            />
           </div>
 
-          {/* Inline script (no libs) */}
-          <script define:vars={{ images, folder, set }}>
-            const urls = images.map((img) => `/cards/${folder}/${set}/${img}`);
+          <select
+            id="sort"
+            class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 px-3 py-2.5 text-sm text-zinc-200 focus:outline-none"
+          >
+            <option value="az">Sort: A → Z</option>
+            <option value="za">Sort: Z → A</option>
+          </select>
+        </div>
 
-            const lb = document.getElementById("lightbox");
-            const lbImg = document.getElementById("lb-img");
-            const lbLabel = document.getElementById("lb-label");
-            const lbCount = document.getElementById("lb-count");
-            const prevBtn = document.getElementById("lb-prev");
-            const nextBtn = document.getElementById("lb-next");
+        <div class="mt-3 flex flex-wrap gap-2">
+          {["All", "RC", "Auto", "Patch", "Relic", "Numbered", "Parallel"].map((t) => (
+            <button
+              type="button"
+              class="chip rounded-full bg-zinc-950/70 ring-1 ring-zinc-800 px-3 py-1.5 text-xs text-zinc-200 hover:ring-zinc-600 transition"
+              data-filter={t}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
 
-            let idx = 0;
+      <!-- Grid: smaller tiles, less padding, better aspect ratio -->
+      <section id="grid" class="mt-6 flex flex-wrap gap-3">
+        {cards.map((c, i) => (
+          <button
+            type="button"
+            class="tile group w-[120px] sm:w-[140px] md:w-[155px] rounded-2xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
+            data-open={i}
+            data-search={`${c.player} ${(c.team ?? "")} ${c.tags.join(" ")} ${(c.parallel ?? "")} ${(c.numbered ?? "")} ${c.file}`.toLowerCase()}
+            data-tags={c.tags.join(",")}
+            data-has-parallel={c.parallel ? "1" : "0"}
+            title={c.file}
+          >
+            <div class="aspect-[5/7] bg-zinc-900/30">
+              <img
+                src={c.url}
+                alt={c.file}
+                loading="lazy"
+                class="h-full w-full object-contain p-0 group-hover:scale-[1.02] transition"
+              />
+            </div>
 
-            function show(i) {
-              idx = (i + urls.length) % urls.length;
-              lbImg.src = urls[idx];
-              lbImg.alt = images[idx];
-              lbLabel.textContent = images[idx];
-              lbCount.textContent = `${idx + 1} / ${urls.length}`;
-              lb.classList.remove("hidden");
-              lb.classList.add("flex");
-              lb.setAttribute("aria-hidden", "false");
-            }
+            <div class="p-2">
+              <div class="text-xs font-semibold text-zinc-200 truncate">{c.player}</div>
+              <div class="mt-0.5 text-[11px] text-zinc-400 truncate">
+                {c.parallel ? c.parallel : (c.team ? c.team : "")}
+              </div>
 
-            function close() {
-              lb.classList.add("hidden");
-              lb.classList.remove("flex");
-              lb.setAttribute("aria-hidden", "true");
-              lbImg.src = "";
-            }
+              <div class="mt-1 flex flex-wrap gap-1">
+                {c.tags.slice(0, 3).map((t) => (
+                  <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-2 py-0.5 text-[10px] text-zinc-200">
+                    {t}
+                  </span>
+                ))}
+                {c.numbered ? (
+                  <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-2 py-0.5 text-[10px] text-zinc-200">
+                    {c.numbered}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </button>
+        ))}
+      </section>
 
-            document.querySelectorAll("[data-open]").forEach((btn) => {
-              btn.addEventListener("click", () => show(parseInt(btn.dataset.open, 10)));
-            });
+      <!-- Lightbox -->
+      <dialog id="lightbox" class="backdrop:bg-black/70 p-0 rounded-2xl overflow-hidden ring-1 ring-zinc-800 bg-zinc-950 text-zinc-100 w-[min(92vw,980px)]">
+        <div class="grid md:grid-cols-2">
+          <div class="bg-zinc-900/30 p-4">
+            <img id="lbImg" src="" alt="" class="w-full h-auto rounded-xl ring-1 ring-zinc-800 object-contain" />
+          </div>
 
-            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", close));
+          <div class="p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div id="lbPlayer" class="text-xl font-semibold tracking-tight"></div>
+                <div id="lbSub" class="mt-1 text-sm text-zinc-400"></div>
+              </div>
 
-            prevBtn.addEventListener("click", () => show(idx - 1));
-            nextBtn.addEventListener("click", () => show(idx + 1));
+              <button id="lbClose" class="rounded-xl ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">
+                Close
+              </button>
+            </div>
 
-            window.addEventListener("keydown", (e) => {
-              if (lb.classList.contains("hidden")) return;
-              if (e.key === "Escape") close();
-              if (e.key === "ArrowLeft") show(idx - 1);
-              if (e.key === "ArrowRight") show(idx + 1);
-            });
-          </script>
-        </>
-      )}
+            <div class="mt-4 flex flex-wrap gap-2" id="lbTags"></div>
+
+            <div class="mt-4 text-xs text-zinc-500 break-all" id="lbFile"></div>
+
+            <div class="mt-5 flex gap-2">
+              <button id="lbPrev" class="rounded-xl ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">← Prev</button>
+              <button id="lbNext" class="rounded-xl ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">Next →</button>
+              <a id="lbOpen" href="#" target="_blank" rel="noreferrer" class="ml-auto rounded-xl bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">
+                Open image ↗
+              </a>
+            </div>
+
+            <div class="mt-3 text-xs text-zinc-500">
+              Tip: Esc closes • Arrow keys navigate
+            </div>
+          </div>
+        </div>
+      </dialog>
+
+      <script is:inline>
+        const CARDS = JSON.parse({JSON.stringify(cards)}); // injected data
+
+        const q = document.getElementById("q");
+        const sortSel = document.getElementById("sort");
+        const chips = Array.from(document.querySelectorAll(".chip"));
+        const tiles = Array.from(document.querySelectorAll(".tile"));
+        const grid = document.getElementById("grid");
+
+        let activeFilter = "All";
+        let query = "";
+
+        function apply() {
+          const qv = (query || "").trim().toLowerCase();
+
+          // filter + search
+          tiles.forEach((t) => {
+            const hay = t.getAttribute("data-search") || "";
+            const tags = (t.getAttribute("data-tags") || "").split(",").map(s => s.trim()).filter(Boolean);
+            const hasParallel = t.getAttribute("data-has-parallel") === "1";
+
+            const matchQuery = !qv || hay.includes(qv);
+
+            let matchFilter = true;
+            if (activeFilter === "RC") matchFilter = tags.includes("RC");
+            else if (activeFilter === "Auto") matchFilter = tags.includes("Auto");
+            else if (activeFilter === "Patch") matchFilter = tags.includes("Patch");
+            else if (activeFilter === "Relic") matchFilter = tags.includes("Relic");
+            else if (activeFilter === "Numbered") matchFilter = tags.includes("Numbered");
+            else if (activeFilter === "Parallel") matchFilter = hasParallel;
+
+            t.style.display = (matchQuery && matchFilter) ? "" : "none";
+          });
+
+          // sort (only visible ones)
+          const visible = tiles.filter(t => t.style.display !== "none");
+          visible.sort((a, b) => {
+            const aKey = (a.getAttribute("data-search") || "");
+            const bKey = (b.getAttribute("data-search") || "");
+            return sortSel.value === "za" ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
+          });
+          visible.forEach(t => grid.appendChild(t));
+        }
+
+        q?.addEventListener("input", (e) => { query = e.target.value; apply(); });
+        sortSel?.addEventListener("change", apply);
+
+        chips.forEach((btn) => {
+          btn.addEventListener("click", () => {
+            activeFilter = btn.getAttribute("data-filter") || "All";
+            chips.forEach(b => b.classList.remove("ring-indigo-500/60"));
+            btn.classList.add("ring-indigo-500/60");
+            apply();
+          });
+        });
+
+        // Lightbox
+        const dlg = document.getElementById("lightbox");
+        const lbImg = document.getElementById("lbImg");
+        const lbPlayer = document.getElementById("lbPlayer");
+        const lbSub = document.getElementById("lbSub");
+        const lbTags = document.getElementById("lbTags");
+        const lbFile = document.getElementById("lbFile");
+        const lbClose = document.getElementById("lbClose");
+        const lbPrev = document.getElementById("lbPrev");
+        const lbNext = document.getElementById("lbNext");
+        const lbOpen = document.getElementById("lbOpen");
+
+        let idx = 0;
+
+        function render(i) {
+          idx = (i + CARDS.length) % CARDS.length;
+          const c = CARDS[idx];
+
+          lbImg.src = c.url;
+          lbImg.alt = c.file;
+
+          lbPlayer.textContent = c.player || c.file;
+
+          const bits = [];
+          if (c.team) bits.push(c.team);
+          if (c.parallel) bits.push(c.parallel);
+          if (c.numbered) bits.push(c.numbered);
+          lbSub.textContent = bits.join(" • ");
+
+          lbTags.innerHTML = "";
+          (c.tags || []).forEach(t => {
+            const span = document.createElement("span");
+            span.className = "rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-xs text-zinc-200";
+            span.textContent = t;
+            lbTags.appendChild(span);
+          });
+
+          lbFile.textContent = c.file;
+          lbOpen.href = c.url;
+        }
+
+        tiles.forEach((t) => {
+          t.addEventListener("click", () => {
+            const open = t.getAttribute("data-open");
+            if (open == null) return;
+            render(parseInt(open, 10));
+            dlg.showModal();
+          });
+        });
+
+        lbClose?.addEventListener("click", () => dlg.close());
+        dlg?.addEventListener("click", (e) => {
+          // click outside panel closes
+          const r = dlg.getBoundingClientRect();
+          if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
+        });
+
+        lbPrev?.addEventListener("click", () => render(idx - 1));
+        lbNext?.addEventListener("click", () => render(idx + 1));
+
+        document.addEventListener("keydown", (e) => {
+          if (!dlg.open) return;
+          if (e.key === "Escape") dlg.close();
+          if (e.key === "ArrowLeft") render(idx - 1);
+          if (e.key === "ArrowRight") render(idx + 1);
+        });
+
+        // default filter highlight
+        chips[0]?.classList.add("ring-indigo-500/60");
+      </script>
     </main>
   </body>
 </html>

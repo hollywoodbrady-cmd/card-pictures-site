@@ -1,5 +1,4 @@
 ---
-import "../../../styles/global.css";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -11,203 +10,164 @@ function niceName(slug: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-type MetaEntry = {
-  player?: string;
-  team?: string;
-  tags?: string[];
-  parallel?: string | null;
-  numbered?: string | null; // e.g. "/99" or "12/99"
-  notes?: string;
-};
+const cardsRoot = path.join(process.cwd(), "public", "cards");
 
-type Card = {
+/**
+ * Case-safe: finds the real folder name on disk that matches the sport slug.
+ * Example: sport="basketball" -> returns "Basketball" if that's what exists.
+ */
+async function resolveSportFolder(sport: string) {
+  const entries = await fs.readdir(cardsRoot, { withFileTypes: true }).catch(() => []);
+  const match = entries.find(
+    (e) => e.isDirectory() && e.name.toLowerCase() === sport.toLowerCase()
+  );
+  return match?.name ?? sport;
+}
+
+type Tag = "rc" | "auto" | "patch" | "numbered" | "parallel";
+type CardMeta = {
   file: string;
   url: string;
   player: string;
-  team: string | null;
-  tags: string[];
-  parallel: string | null;
-  numbered: string | null;
+  tags: Tag[];
+  numberedText: string | null;
+  raw: string;
 };
 
-function tokenizeFilename(file: string) {
-  return file
-    .replace(/\.(webp|png|jpe?g|gif)$/i, "")
-    .split("-")
-    .map((t) => t.trim())
+function inferMetaFromFilename(file: string, sport: string): { player: string; tags: Tag[]; numberedText: string | null } {
+  const raw = file.replace(/\.[^.]+$/, "");
+  const tokens = raw
+    .toLowerCase()
+    .split(/[-_]+/g)
     .filter(Boolean);
-}
 
-function parseNumbered(tokens: string[]) {
-  // supports: "12of99", "12-99" won't appear because split on "-", so mostly "12of99" or "99"
-  const joined = tokens.join("-");
-  const m1 = joined.match(/(\d{1,3})of(\d{1,3})/i); // 12of99
-  if (m1) return `${m1[1]}/${m1[2]}`;
-  const m2 = joined.match(/\/(\d{1,3})/); // already contains /99 (rare in filenames)
-  if (m2) return `/${m2[1]}`;
-  return null;
-}
+  const sportToken = sport.toLowerCase();
+  const sportIdx = tokens.indexOf(sportToken);
 
-function parseCardInfo(file: string, sport: string, set: string) {
-  const tokens = tokenizeFilename(file);
-
-  // remove leading/trailing year like 2025 ... 2025
-  if (tokens[0] && /^\d{4}$/.test(tokens[0])) tokens.shift();
-  if (tokens[tokens.length - 1] && /^\d{4}$/.test(tokens[tokens.length - 1])) tokens.pop();
-
-  // remove sport tokens if present
-  const sportTokens = sport.split("-").filter(Boolean);
-  for (const st of sportTokens) {
-    const idx = tokens.indexOf(st);
-    if (idx >= 0) tokens.splice(idx, 1);
-  }
-
-  // remove set tokens if present
-  const setTokens = set.split("-").filter(Boolean);
-  for (const st of setTokens) {
-    const idx = tokens.indexOf(st);
-    if (idx >= 0) tokens.splice(idx, 1);
-  }
-
-  const lower = tokens.map((t) => t.toLowerCase());
-
-  // tags & features (expand as you like)
-  const tagMap: Record<string, string> = {
-    rc: "RC",
-    rookie: "RC",
-    auto: "Auto",
-    autograph: "Auto",
-    patch: "Patch",
-    relic: "Relic",
-    jersey: "Relic",
-    numbered: "Numbered",
-    sp: "SP",
-    ssp: "SSP",
-  };
-
-  const knownFeatureWords = new Set([
-    "rc","rookie","auto","autograph","patch","relic","jersey","numbered","sp","ssp",
-    // common “parallel/insert-ish” words — these become Parallel if they appear
-    "silver","gold","black","red","blue","green","purple","orange","pink",
-    "holo","wave","prizm","mosaic","scope","refractor","chrome","foil",
-    "clutch","insert","parallel"
+  // Heuristic:
+  // - if sport token exists: player tokens are after it
+  // - stop player tokens when we hit a year (4 digits) or known tag-like tokens
+  const stopTokens = new Set([
+    "rc",
+    "rookie",
+    "auto",
+    "autograph",
+    "sig",
+    "signature",
+    "patch",
+    "jersey",
+    "relic",
+    "numbered",
+    "parallel",
+    "prizm",
+    "refractor",
+    "chrome",
+    "gold",
+    "silver",
+    "purple",
+    "red",
+    "blue",
+    "green",
+    "orange",
+    "black",
+    "pink",
+    "wave",
+    "scope",
+    "mosaic",
+    "holo",
+    "foil",
+    "ssp",
+    "sp",
   ]);
 
-  const tags: string[] = [];
-  for (const t of lower) {
-    if (tagMap[t]) tags.push(tagMap[t]);
+  const isYear = (t: string) => /^\d{4}$/.test(t);
+
+  let afterSport = sportIdx >= 0 ? tokens.slice(sportIdx + 1) : tokens.slice();
+  // Sometimes the set name is first; sometimes not. This keeps it resilient.
+
+  // Find numbered patterns like "25of99" or "25-99" or "25/99"
+  let numberedText: string | null = null;
+  const joined = raw;
+  const m1 = joined.match(/(\d+)\s*of\s*(\d+)/i);
+  const m2 = joined.match(/(\d+)\s*\/\s*(\d+)/);
+  if (m1) numberedText = `${m1[1]}/${m1[2]}`;
+  if (m2) numberedText = `${m2[1]}/${m2[2]}`;
+
+  // Determine tags from tokens / patterns
+  const tags: Tag[] = [];
+  const has = (w: string) => tokens.includes(w);
+
+  if (has("rc") || has("rookie")) tags.push("rc");
+  if (has("auto") || has("autograph") || has("sig") || has("signature")) tags.push("auto");
+  if (has("patch") || has("jersey") || has("relic")) tags.push("patch");
+  if (numberedText || has("numbered")) tags.push("numbered");
+
+  // Parallel-ish detection
+  const parallelHints = ["parallel", "prizm", "refractor", "chrome", "holo", "foil", "wave", "scope", "mosaic"];
+  if (parallelHints.some((p) => has(p))) tags.push("parallel");
+
+  // Player tokens: take from afterSport until stop condition
+  const playerTokens: string[] = [];
+  for (const t of afterSport) {
+    if (isYear(t)) break;
+    if (stopTokens.has(t)) break;
+    // also stop if token looks like "25of99" or "25/99"
+    if (/^\d+of\d+$/i.test(t) || /^\d+\/\d+$/.test(t)) break;
+    playerTokens.push(t);
   }
-
-  const numbered = parseNumbered(lower);
-  if (numbered && !tags.includes("Numbered")) tags.push("Numbered");
-
-  // Split into player tokens vs “rest” tokens:
-  // everything before first known feature word => player
-  let splitAt = tokens.length;
-  for (let i = 0; i < lower.length; i++) {
-    if (knownFeatureWords.has(lower[i])) {
-      splitAt = i;
-      break;
-    }
-  }
-
-  const playerTokens = tokens.slice(0, splitAt);
-  const restTokens = tokens.slice(splitAt);
 
   const player =
-    playerTokens.length ? niceName(playerTokens.join(" ")) : niceName(tokens.join(" "));
+    playerTokens.length > 0
+      ? niceName(playerTokens.join(" "))
+      : niceName(raw); // fallback if we can't infer well
 
-  // infer parallel from rest tokens (if any)
-  const restPretty = restTokens.map((t) => niceName(t));
-  let parallel: string | null = null;
-  if (restPretty.length) {
-    // treat remaining words as a “parallel/insert name” unless they’re just feature words
-    const cleaned = restTokens.filter((t) => {
-      const tl = t.toLowerCase();
-      return !tagMap[tl] && !/^\d+$/.test(tl) && !/^\d{1,3}of\d{1,3}$/i.test(tl);
-    });
-    if (cleaned.length) parallel = niceName(cleaned.join(" "));
-  }
-
-  return { player, tags, numbered, parallel };
+  return { player, tags: Array.from(new Set(tags)), numberedText };
 }
 
-// --- routing + filesystem ---
 export async function getStaticPaths() {
-  // If you still have any casing weirdness in repo history, you can map here:
-  const sportFolderMap: Record<string, string> = {
-    baseball: "baseball",
-    basketball: "basketball",
-    football: "football",
-  };
-
   const sports = ["baseball", "basketball", "football"];
   const paths: { params: { sport: string; set: string } }[] = [];
 
   for (const sport of sports) {
-    const folder = sportFolderMap[sport] ?? sport;
-    const sportDir = path.join(process.cwd(), "public", "cards", folder);
+    const folder = await resolveSportFolder(sport);
+    const sportDir = path.join(cardsRoot, folder);
+
     const entries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
     const sets = entries.filter((e) => e.isDirectory()).map((e) => e.name);
-    for (const set of sets) paths.push({ params: { sport, set } });
+
+    for (const set of sets) {
+      paths.push({ params: { sport, set } });
+    }
   }
+
   return paths;
 }
 
 const sport = (Astro.params.sport ?? "").toString();
 const set = (Astro.params.set ?? "").toString();
 
-const sportFolderMap: Record<string, string> = {
-  baseball: "baseball",
-  basketball: "basketball",
-  football: "football",
-};
-
-const folder = sportFolderMap[sport] ?? sport;
-const setDir = path.join(process.cwd(), "public", "cards", folder, set);
-
-// optional overrides file per set
-const metaPath = path.join(setDir, "cards.meta.json");
-let meta: Record<string, MetaEntry> = {};
-try {
-  const metaRaw = await fs.readFile(metaPath, "utf8");
-  meta = JSON.parse(metaRaw);
-} catch {
-  meta = {};
-}
+const folder = await resolveSportFolder(sport);
+const setDir = path.join(cardsRoot, folder, set);
 
 const files = await fs.readdir(setDir).catch(() => []);
-const imageFiles = files
+const images = files
   .filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f))
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-const cards: Card[] = imageFiles.map((file) => {
-  const base = parseCardInfo(file, sport, set);
-  const override = meta[file] ?? {};
-
-  const tags = Array.from(
-    new Set([...(base.tags ?? []), ...((override.tags ?? []) as string[])])
-  );
-
-  const player = override.player ?? base.player;
-  const team = override.team ?? null;
-
-  const parallel = override.parallel ?? base.parallel ?? null;
-  const numbered = override.numbered ?? base.numbered ?? null;
-
+const cards: CardMeta[] = images.map((file) => {
+  const url = `/cards/${folder}/${set}/${file}`;
+  const meta = inferMetaFromFilename(file, sport);
   return {
     file,
-    url: `/cards/${folder}/${set}/${file}`,
-    player,
-    team,
-    tags,
-    parallel,
-    numbered,
+    url,
+    player: meta.player,
+    tags: meta.tags,
+    numberedText: meta.numberedText,
+    raw: file,
   };
 });
 
 const title = `${niceName(set)} • ${niceName(sport)}`;
-const logoUrl = "/brand/bradyrip.png"; // change if needed
 ---
 
 <html lang="en">
@@ -218,280 +178,385 @@ const logoUrl = "/brand/bradyrip.png"; // change if needed
   </head>
 
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
-    <main class="mx-auto max-w-6xl px-4 py-8">
-      <!-- Top bar -->
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <!-- Header -->
       <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <a href="/" class="flex items-center gap-3 hover:opacity-90 transition">
-            <img src={logoUrl} alt="BradyRip" class="h-9 w-9 rounded-full ring-1 ring-zinc-800 object-cover" />
-            <div class="leading-tight">
-              <div class="text-sm font-semibold tracking-tight">BradyRip</div>
-              <div class="text-xs text-zinc-400">Card Gallery</div>
-            </div>
+          <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">
+            ← Back to {niceName(sport)} sets
           </a>
-
-          <span class="hidden sm:inline text-zinc-700">/</span>
-          <a href={`/${sport}/`} class="hidden sm:inline text-sm text-zinc-300 hover:text-white transition">
-            {niceName(sport)}
-          </a>
+          <span class="text-zinc-700">/</span>
+          <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">Home</a>
         </div>
 
-        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200 transition">
-          ← Back to sets
-        </a>
+        <div class="flex items-center gap-3">
+          <img
+            src="/brand/bradyrip.png"
+            alt="BradyRip"
+            class="h-8 w-8 rounded-full ring-1 ring-zinc-800 bg-zinc-900/40 object-contain"
+            loading="lazy"
+            onerror="this.style.display='none';"
+          />
+          <span class="hidden sm:inline text-sm text-zinc-400">BradyRip Gallery</span>
+        </div>
       </div>
 
-      <!-- Header -->
-      <div class="mt-6 rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-6 relative overflow-hidden">
-        <div class="absolute -top-20 -right-16 h-64 w-64 rounded-full bg-indigo-500/10 blur-3xl"></div>
-        <div class="absolute -bottom-16 -left-10 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
-
-        <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
+      <!-- Title -->
+      <div class="mt-6">
+        <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight">{niceName(set)}</h1>
         <p class="mt-2 text-zinc-300">
           {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
         </p>
+      </div>
 
-        <!-- Controls -->
-        <div class="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
-          <div class="flex-1">
-            <input
-              id="q"
-              type="search"
-              placeholder="Search by player, team, tags, parallel, filename..."
-              class="w-full rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-            />
-          </div>
-
-          <select
-            id="sort"
-            class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 px-3 py-2.5 text-sm text-zinc-200 focus:outline-none"
-          >
-            <option value="az">Sort: A → Z</option>
-            <option value="za">Sort: Z → A</option>
-          </select>
+      <!-- Controls -->
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex-1">
+          <label class="sr-only" for="q">Search</label>
+          <input
+            id="q"
+            type="search"
+            placeholder="Search player, tags, filename…"
+            class="w-full rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600"
+          />
         </div>
 
-        <div class="mt-3 flex flex-wrap gap-2">
-          {["All", "RC", "Auto", "Patch", "Relic", "Numbered", "Parallel"].map((t) => (
-            <button
-              type="button"
-              class="chip rounded-full bg-zinc-950/70 ring-1 ring-zinc-800 px-3 py-1.5 text-xs text-zinc-200 hover:ring-zinc-600 transition"
-              data-filter={t}
-            >
-              {t}
-            </button>
-          ))}
+        <div class="flex flex-wrap gap-2">
+          <button data-filter="all" class="chip is-active">All</button>
+          <button data-filter="rc" class="chip">RC</button>
+          <button data-filter="auto" class="chip">Auto</button>
+          <button data-filter="patch" class="chip">Patch</button>
+          <button data-filter="numbered" class="chip">#’d</button>
+          <button data-filter="parallel" class="chip">Parallel</button>
         </div>
       </div>
 
-      <!-- Grid: smaller tiles, less padding, better aspect ratio -->
-      <section id="grid" class="mt-6 flex flex-wrap gap-3">
-        {cards.map((c, i) => (
-          <button
-            type="button"
-            class="tile group w-[120px] sm:w-[140px] md:w-[155px] rounded-2xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
-            data-open={i}
-            data-search={`${c.player} ${(c.team ?? "")} ${c.tags.join(" ")} ${(c.parallel ?? "")} ${(c.numbered ?? "")} ${c.file}`.toLowerCase()}
-            data-tags={c.tags.join(",")}
-            data-has-parallel={c.parallel ? "1" : "0"}
-            title={c.file}
-          >
-            <div class="aspect-[5/7] bg-zinc-900/30">
-              <img
-                src={c.url}
-                alt={c.file}
-                loading="lazy"
-                class="h-full w-full object-contain p-0 group-hover:scale-[1.02] transition"
-              />
-            </div>
-
-            <div class="p-2">
-              <div class="text-xs font-semibold text-zinc-200 truncate">{c.player}</div>
-              <div class="mt-0.5 text-[11px] text-zinc-400 truncate">
-                {c.parallel ? c.parallel : (c.team ? c.team : "")}
-              </div>
-
-              <div class="mt-1 flex flex-wrap gap-1">
-                {c.tags.slice(0, 3).map((t) => (
-                  <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-2 py-0.5 text-[10px] text-zinc-200">
-                    {t}
-                  </span>
-                ))}
-                {c.numbered ? (
-                  <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-2 py-0.5 text-[10px] text-zinc-200">
-                    {c.numbered}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </button>
-        ))}
-      </section>
-
-      <!-- Lightbox -->
-      <dialog id="lightbox" class="backdrop:bg-black/70 p-0 rounded-2xl overflow-hidden ring-1 ring-zinc-800 bg-zinc-950 text-zinc-100 w-[min(92vw,980px)]">
-        <div class="grid md:grid-cols-2">
-          <div class="bg-zinc-900/30 p-4">
-            <img id="lbImg" src="" alt="" class="w-full h-auto rounded-xl ring-1 ring-zinc-800 object-contain" />
-          </div>
-
-          <div class="p-5">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <div id="lbPlayer" class="text-xl font-semibold tracking-tight"></div>
-                <div id="lbSub" class="mt-1 text-sm text-zinc-400"></div>
-              </div>
-
-              <button id="lbClose" class="rounded-xl ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">
-                Close
-              </button>
-            </div>
-
-            <div class="mt-4 flex flex-wrap gap-2" id="lbTags"></div>
-
-            <div class="mt-4 text-xs text-zinc-500 break-all" id="lbFile"></div>
-
-            <div class="mt-5 flex gap-2">
-              <button id="lbPrev" class="rounded-xl ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">← Prev</button>
-              <button id="lbNext" class="rounded-xl ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">Next →</button>
-              <a id="lbOpen" href="#" target="_blank" rel="noreferrer" class="ml-auto rounded-xl bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1.5 text-sm hover:ring-zinc-600 transition">
-                Open image ↗
-              </a>
-            </div>
-
-            <div class="mt-3 text-xs text-zinc-500">
-              Tip: Esc closes • Arrow keys navigate
-            </div>
+      <!-- Empty -->
+      {cards.length === 0 ? (
+        <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
+          No images found in{" "}
+          <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+            public/cards/{folder}/{set}/
+          </code>
+          <div class="mt-3 text-sm text-zinc-400">
+            Add .webp/.jpg/.png files to that folder, commit, and push.
           </div>
         </div>
-      </dialog>
+      ) : (
+        <!-- Grid -->
+        <section id="grid" class="mt-6 flex flex-wrap gap-4">
+          {cards.map((c, idx) => (
+            <button
+              type="button"
+              class="tile group"
+              data-i={idx}
+              data-player={c.player.toLowerCase()}
+              data-tags={c.tags.join(",")}
+              data-raw={c.raw.toLowerCase()}
+              title={c.player}
+            >
+              <div class="thumb">
+                <img
+                  src={c.url}
+                  alt={c.player}
+                  loading="lazy"
+                  class="img"
+                />
+              </div>
 
-      <script is:inline>
-        const CARDS = JSON.parse({JSON.stringify(cards)}); // injected data
+              <div class="meta">
+                <div class="name">{c.player}</div>
+                <div class="chips">
+                  {c.tags.includes("rc") && <span class="pill">RC</span>}
+                  {c.tags.includes("auto") && <span class="pill">AUTO</span>}
+                  {c.tags.includes("patch") && <span class="pill">PATCH</span>}
+                  {c.tags.includes("parallel") && <span class="pill">PARALLEL</span>}
+                  {(c.tags.includes("numbered") || c.numberedText) && (
+                    <span class="pill">{c.numberedText ? `# ${c.numberedText}` : "#'D"}</span>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+        </section>
+      )}
 
-        const q = document.getElementById("q");
-        const sortSel = document.getElementById("sort");
-        const chips = Array.from(document.querySelectorAll(".chip"));
-        const tiles = Array.from(document.querySelectorAll(".tile"));
-        const grid = document.getElementById("grid");
+      <!-- Lightbox -->
+      <div id="lb" class="lb hidden" aria-hidden="true">
+        <div class="lb-backdrop" data-close="1"></div>
 
-        let activeFilter = "All";
-        let query = "";
+        <div class="lb-panel" role="dialog" aria-modal="true">
+          <div class="lb-top">
+            <div class="lb-title" id="lbTitle"></div>
+            <button class="lb-x" data-close="1" aria-label="Close">✕</button>
+          </div>
 
-        function apply() {
-          const qv = (query || "").trim().toLowerCase();
+          <div class="lb-body">
+            <button class="lb-nav" id="prevBtn" aria-label="Previous">‹</button>
+            <img id="lbImg" class="lb-img" alt="" />
+            <button class="lb-nav" id="nextBtn" aria-label="Next">›</button>
+          </div>
 
-          // filter + search
-          tiles.forEach((t) => {
-            const hay = t.getAttribute("data-search") || "";
-            const tags = (t.getAttribute("data-tags") || "").split(",").map(s => s.trim()).filter(Boolean);
-            const hasParallel = t.getAttribute("data-has-parallel") === "1";
+          <div class="lb-bottom">
+            <a id="openRaw" class="lb-link" target="_blank" rel="noreferrer">Open original →</a>
+          </div>
+        </div>
+      </div>
 
-            const matchQuery = !qv || hay.includes(qv);
-
-            let matchFilter = true;
-            if (activeFilter === "RC") matchFilter = tags.includes("RC");
-            else if (activeFilter === "Auto") matchFilter = tags.includes("Auto");
-            else if (activeFilter === "Patch") matchFilter = tags.includes("Patch");
-            else if (activeFilter === "Relic") matchFilter = tags.includes("Relic");
-            else if (activeFilter === "Numbered") matchFilter = tags.includes("Numbered");
-            else if (activeFilter === "Parallel") matchFilter = hasParallel;
-
-            t.style.display = (matchQuery && matchFilter) ? "" : "none";
-          });
-
-          // sort (only visible ones)
-          const visible = tiles.filter(t => t.style.display !== "none");
-          visible.sort((a, b) => {
-            const aKey = (a.getAttribute("data-search") || "");
-            const bKey = (b.getAttribute("data-search") || "");
-            return sortSel.value === "za" ? bKey.localeCompare(aKey) : aKey.localeCompare(bKey);
-          });
-          visible.forEach(t => grid.appendChild(t));
+      <style>
+        .chip {
+          border-radius: 999px;
+          padding: 10px 12px;
+          font-size: 12px;
+          line-height: 1;
+          background: rgba(9, 9, 11, 1);
+          border: 1px solid rgba(39, 39, 42, 1);
+          color: rgba(212, 212, 216, 1);
+          transition: 0.15s ease;
+          white-space: nowrap;
+        }
+        .chip:hover { border-color: rgba(82, 82, 91, 1); }
+        .chip.is-active {
+          background: rgba(24, 24, 27, 0.85);
+          border-color: rgba(82, 82, 91, 1);
+          color: white;
         }
 
-        q?.addEventListener("input", (e) => { query = e.target.value; apply(); });
-        sortSel?.addEventListener("change", apply);
+        /* Smaller tiles, less padding */
+        .tile {
+          width: 180px;
+          text-align: left;
+          border-radius: 20px;
+          background: rgba(9, 9, 11, 1);
+          border: 1px solid rgba(39, 39, 42, 1);
+          overflow: hidden;
+          transition: 0.15s ease;
+        }
+        .tile:hover { border-color: rgba(82, 82, 91, 1); transform: translateY(-1px); }
+
+        .thumb {
+          height: 240px; /* ~ 3:4 at 180w */
+          background: rgba(24, 24, 27, 0.35);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 8px; /* reduced padding */
+        }
+        .img {
+          max-height: 100%;
+          max-width: 100%;
+          object-fit: contain;
+          border-radius: 10px;
+        }
+
+        .meta {
+          padding: 10px 12px; /* reduced */
+        }
+        .name {
+          font-size: 13px;
+          font-weight: 600;
+          color: rgba(244, 244, 245, 1);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .chips {
+          margin-top: 6px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .pill {
+          font-size: 10px;
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid rgba(39, 39, 42, 1);
+          background: rgba(24, 24, 27, 0.7);
+          color: rgba(212, 212, 216, 1);
+        }
+
+        /* Lightbox */
+        .lb.hidden { display: none; }
+        .lb { position: fixed; inset: 0; z-index: 50; }
+        .lb-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.7); }
+        .lb-panel {
+          position: relative;
+          margin: 4vh auto;
+          max-width: 980px;
+          width: calc(100% - 24px);
+          border-radius: 24px;
+          border: 1px solid rgba(39,39,42,1);
+          background: rgba(9,9,11,0.98);
+          overflow: hidden;
+        }
+        .lb-top {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px 14px;
+          border-bottom: 1px solid rgba(39,39,42,1);
+        }
+        .lb-title { font-size: 14px; color: rgba(212,212,216,1); }
+        .lb-x {
+          border-radius: 12px;
+          padding: 8px 10px;
+          border: 1px solid rgba(39,39,42,1);
+          background: rgba(24,24,27,0.6);
+          color: rgba(244,244,245,1);
+        }
+        .lb-body {
+          display: grid;
+          grid-template-columns: 44px 1fr 44px;
+          align-items: center;
+          gap: 10px;
+          padding: 12px;
+        }
+        .lb-img {
+          width: 100%;
+          height: 72vh;
+          object-fit: contain;
+          border-radius: 16px;
+          background: rgba(24,24,27,0.35);
+        }
+        .lb-nav {
+          height: 44px;
+          width: 44px;
+          border-radius: 14px;
+          border: 1px solid rgba(39,39,42,1);
+          background: rgba(24,24,27,0.6);
+          color: rgba(244,244,245,1);
+          font-size: 22px;
+          line-height: 1;
+        }
+        .lb-bottom {
+          padding: 10px 14px;
+          border-top: 1px solid rgba(39,39,42,1);
+          display: flex;
+          justify-content: flex-end;
+        }
+        .lb-link { color: rgba(212,212,216,1); font-size: 13px; }
+        .lb-link:hover { color: white; }
+      </style>
+
+      <script>
+        const q = document.getElementById("q");
+        const grid = document.getElementById("grid");
+        const chips = Array.from(document.querySelectorAll(".chip"));
+
+        let activeFilter = "all";
+
+        function applyFilter() {
+          if (!grid) return;
+          const term = (q?.value || "").toLowerCase().trim();
+
+          const tiles = Array.from(grid.querySelectorAll(".tile"));
+          for (const el of tiles) {
+            const player = el.getAttribute("data-player") || "";
+            const raw = el.getAttribute("data-raw") || "";
+            const tags = el.getAttribute("data-tags") || "";
+
+            const matchesText =
+              !term ||
+              player.includes(term) ||
+              raw.includes(term) ||
+              tags.includes(term);
+
+            const matchesTag =
+              activeFilter === "all" ||
+              (tags.split(",").includes(activeFilter));
+
+            el.style.display = matchesText && matchesTag ? "" : "none";
+          }
+        }
+
+        q?.addEventListener("input", applyFilter);
 
         chips.forEach((btn) => {
           btn.addEventListener("click", () => {
-            activeFilter = btn.getAttribute("data-filter") || "All";
-            chips.forEach(b => b.classList.remove("ring-indigo-500/60"));
-            btn.classList.add("ring-indigo-500/60");
-            apply();
+            chips.forEach((b) => b.classList.remove("is-active"));
+            btn.classList.add("is-active");
+            activeFilter = btn.getAttribute("data-filter") || "all";
+            applyFilter();
           });
         });
 
         // Lightbox
-        const dlg = document.getElementById("lightbox");
+        const lb = document.getElementById("lb");
         const lbImg = document.getElementById("lbImg");
-        const lbPlayer = document.getElementById("lbPlayer");
-        const lbSub = document.getElementById("lbSub");
-        const lbTags = document.getElementById("lbTags");
-        const lbFile = document.getElementById("lbFile");
-        const lbClose = document.getElementById("lbClose");
-        const lbPrev = document.getElementById("lbPrev");
-        const lbNext = document.getElementById("lbNext");
-        const lbOpen = document.getElementById("lbOpen");
+        const lbTitle = document.getElementById("lbTitle");
+        const openRaw = document.getElementById("openRaw");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
 
-        let idx = 0;
+        let currentIndex = -1;
+        const data = {CARDS_JSON};
 
-        function render(i) {
-          idx = (i + CARDS.length) % CARDS.length;
-          const c = CARDS[idx];
+        function openAt(i) {
+          currentIndex = i;
+          const c = data[i];
+          if (!c) return;
+
+          lb?.classList.remove("hidden");
+          lb?.setAttribute("aria-hidden", "false");
 
           lbImg.src = c.url;
-          lbImg.alt = c.file;
-
-          lbPlayer.textContent = c.player || c.file;
-
-          const bits = [];
-          if (c.team) bits.push(c.team);
-          if (c.parallel) bits.push(c.parallel);
-          if (c.numbered) bits.push(c.numbered);
-          lbSub.textContent = bits.join(" • ");
-
-          lbTags.innerHTML = "";
-          (c.tags || []).forEach(t => {
-            const span = document.createElement("span");
-            span.className = "rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-xs text-zinc-200";
-            span.textContent = t;
-            lbTags.appendChild(span);
-          });
-
-          lbFile.textContent = c.file;
-          lbOpen.href = c.url;
+          lbImg.alt = c.player || c.file;
+          lbTitle.textContent = c.player || c.file;
+          openRaw.href = c.url;
         }
 
-        tiles.forEach((t) => {
-          t.addEventListener("click", () => {
-            const open = t.getAttribute("data-open");
-            if (open == null) return;
-            render(parseInt(open, 10));
-            dlg.showModal();
-          });
+        function closeLb() {
+          lb?.classList.add("hidden");
+          lb?.setAttribute("aria-hidden", "true");
+          if (lbImg) lbImg.src = "";
+          currentIndex = -1;
+        }
+
+        function prev() { if (currentIndex > 0) openAt(currentIndex - 1); }
+        function next() { if (currentIndex < data.length - 1) openAt(currentIndex + 1); }
+
+        grid?.addEventListener("click", (e) => {
+          const btn = e.target.closest(".tile");
+          if (!btn) return;
+          const i = Number(btn.getAttribute("data-i") || "-1");
+          if (i >= 0) openAt(i);
         });
 
-        lbClose?.addEventListener("click", () => dlg.close());
-        dlg?.addEventListener("click", (e) => {
-          // click outside panel closes
-          const r = dlg.getBoundingClientRect();
-          if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dlg.close();
+        lb?.addEventListener("click", (e) => {
+          const t = e.target;
+          if (t && t.getAttribute && t.getAttribute("data-close") === "1") closeLb();
         });
 
-        lbPrev?.addEventListener("click", () => render(idx - 1));
-        lbNext?.addEventListener("click", () => render(idx + 1));
+        prevBtn?.addEventListener("click", prev);
+        nextBtn?.addEventListener("click", next);
 
-        document.addEventListener("keydown", (e) => {
-          if (!dlg.open) return;
-          if (e.key === "Escape") dlg.close();
-          if (e.key === "ArrowLeft") render(idx - 1);
-          if (e.key === "ArrowRight") render(idx + 1);
+        window.addEventListener("keydown", (e) => {
+          if (lb?.classList.contains("hidden")) return;
+          if (e.key === "Escape") closeLb();
+          if (e.key === "ArrowLeft") prev();
+          if (e.key === "ArrowRight") next();
         });
-
-        // default filter highlight
-        chips[0]?.classList.add("ring-indigo-500/60");
       </script>
     </main>
   </body>
 </html>
+
+<!-- Inject cards data safely -->
+{/*
+  Astro will replace this placeholder in the script above.
+  Keep this at the bottom so it doesn't break parsing.
+*/}
+<script is:inline>
+  {String.raw`const CARDS_JSON = ${JSON.stringify(cards)};`}
+</script>
+<script is:inline>
+  {String.raw`
+    // Replace placeholder with real JSON at runtime
+    const scripts = document.querySelectorAll("script");
+    for (const s of scripts) {
+      if (s.textContent && s.textContent.includes("{CARDS_JSON}")) {
+        s.textContent = s.textContent.replace("{CARDS_JSON}", "CARDS_JSON");
+      }
+    }
+  `}
+</script>

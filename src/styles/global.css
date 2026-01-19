@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* src/styles/global.css */
 :root {
   --bg: 10 10 12;

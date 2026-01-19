@@ -11,30 +11,6 @@ function niceName(slug: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-type MetaEntry = {
-  player?: string;
-  team?: string;
-  rc?: boolean;
-  parallel?: string | null;
-  numbered?: string | null; // ex: "12/25"
-};
-
-type MetaMap = Record<string, MetaEntry>;
-
-type Card = {
-  file: string;
-  url: string;
-  player: string;
-  team: string;
-  parallel: string | null;
-  numbered: string | null;
-  rc: boolean;
-};
-
-function stripExt(file: string) {
-  return file.replace(/\.[^.]+$/, "");
-}
-
 export async function getStaticPaths() {
   const baseDir = path.join(process.cwd(), "public", "cards");
   const sports = ["baseball", "basketball", "football"];
@@ -68,81 +44,12 @@ const folder =
 
 const setDir = path.join(baseDir, folder, set);
 
-// Read images
 const files = await fs.readdir(setDir).catch(() => []);
 const images = files
   .filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f))
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-// Read metadata
-let meta: MetaMap = {};
-let metaError: string | null = null;
-
-try {
-  const raw = await fs.readFile(path.join(setDir, "cards.meta.json"), "utf8");
-  meta = JSON.parse(raw);
-} catch (e: any) {
-  // If the file doesn't exist, that's fine. If it exists but is invalid, show a warning.
-  // We only store the error message; page still works.
-  meta = {};
-  // Try to detect if file exists to avoid warning on "no file"
-  try {
-    await fs.access(path.join(setDir, "cards.meta.json"));
-    metaError = e?.message ?? "Invalid cards.meta.json";
-  } catch {
-    metaError = null;
-  }
-}
-
-// Build a case-insensitive lookup map for meta keys
-const metaLower = new Map<string, MetaEntry>();
-for (const [k, v] of Object.entries(meta)) {
-  metaLower.set(k.toLowerCase(), v);
-}
-
-function getMetaForImage(img: string): MetaEntry {
-  // exact key
-  if (meta[img]) return meta[img];
-
-  // case-insensitive exact filename
-  const lowerHit = metaLower.get(img.toLowerCase());
-  if (lowerHit) return lowerHit;
-
-  // try without extension
-  const base = stripExt(img);
-  if (meta[base]) return meta[base];
-  const baseLowerHit = metaLower.get(base.toLowerCase());
-  if (baseLowerHit) return baseLowerHit;
-
-  return {};
-}
-
-const cards: Card[] = images.map((img) => {
-  const m = getMetaForImage(img);
-
-  return {
-    file: img,
-    url: `/cards/${folder}/${set}/${img}`,
-    player: (m.player ?? "").trim() || niceName(stripExt(img)),
-    team: (m.team ?? "").trim() || "",
-    parallel: m.parallel ?? null,
-    numbered: m.numbered ?? null,
-    rc: Boolean(m.rc),
-  };
-});
-
 const title = `${niceName(sport)} • ${niceName(set)}`;
-
-// For the lightbox script
-const cardData = cards.map((c) => ({
-  url: c.url,
-  file: c.file,
-  player: c.player,
-  team: c.team,
-  parallel: c.parallel,
-  numbered: c.numbered,
-  rc: c.rc,
-}));
 ---
 
 <html lang="en">
@@ -165,23 +72,11 @@ const cardData = cards.map((c) => ({
       <div class="mt-6">
         <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
         <p class="mt-2 text-zinc-300">
-          {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
+          {niceName(sport)} • {images.length} card{images.length === 1 ? "" : "s"}
         </p>
       </div>
 
-      {metaError && (
-        <div class="mt-4 rounded-xl ring-1 ring-red-900/50 bg-red-950/20 p-4 text-sm text-red-200">
-          <div class="font-semibold">cards.meta.json problem</div>
-          <div class="mt-1 text-red-200/90">
-            {metaError}
-          </div>
-          <div class="mt-2 text-red-200/80">
-            Fix it so it is ONE valid JSON object, and keys match the exact filename (including .webp).
-          </div>
-        </div>
-      )}
-
-      {cards.length === 0 ? (
+      {images.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
           No images found in{" "}
           <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
@@ -190,44 +85,28 @@ const cardData = cards.map((c) => ({
         </div>
       ) : (
         <>
-          {/* THUMB GRID (small + info) */}
-          <section class="mt-6 flex flex-wrap gap-2">
-            {cards.map((c, i) => (
-              <button
-                type="button"
-                class="group w-[125px] sm:w-[140px] md:w-[155px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition text-left"
-                data-open={i}
-                aria-label={`Open ${c.file}`}
-                title={c.file}
-              >
-                <div class="aspect-[3/4] bg-zinc-900/30">
-                  <img
-                    src={c.url}
-                    alt={c.file}
-                    loading="lazy"
-                    class="h-full w-full object-contain p-1.5 group-hover:scale-[1.02] transition"
-                  />
-                </div>
+          {/* THUMB GRID (small) */}
+          <section class="mt-6 flex flex-wrap gap-3">
+  {images.map((img, i) => (
+    <button
+      type="button"
+      class="group w-[130px] sm:w-[145px] md:w-[160px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
+      data-open={i}
+      aria-label={`Open ${img}`}
+      title={img}
+    >
+      <div class="aspect-[3/4] bg-zinc-900/30">
+        <img
+          src={`/cards/${folder}/${set}/${img}`}
+          alt={img}
+          loading="lazy"
+          class="h-full w-full object-contain p-2 group-hover:scale-[1.02] transition"
+        />
+      </div>
+    </button>
+  ))}
+</section>
 
-                {/* INFO (Name / Team / badges) */}
-                <div class="px-2 py-2">
-                  <div class="text-xs font-semibold text-zinc-100 truncate">
-                    {c.player}
-                  </div>
-
-                  <div class="mt-0.5 text-[11px] text-zinc-400 truncate">
-                    {c.team || " "}
-                  </div>
-
-                  <div class="mt-1 flex flex-wrap gap-1">
-                    {c.rc && <span class="pill">RC</span>}
-                    {c.parallel && <span class="pill">{c.parallel}</span>}
-                    {c.numbered && <span class="pill">#{c.numbered}</span>}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </section>
 
           {/* LIGHTBOX */}
           <div
@@ -240,7 +119,7 @@ const cardData = cards.map((c) => ({
             <div class="relative w-full max-w-4xl">
               <div class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 overflow-hidden">
                 <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                  <div class="text-sm text-zinc-200 truncate" id="lb-label"></div>
+                  <div class="text-sm text-zinc-300 truncate" id="lb-label"></div>
                   <button
                     type="button"
                     class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
@@ -251,7 +130,13 @@ const cardData = cards.map((c) => ({
                 </div>
 
                 <div class="bg-black/30">
-                  <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
+                  {/* Big view: contains inside, not full-screen huge */}
+                  <img
+                    id="lb-img"
+                    src=""
+                    alt=""
+                    class="w-full max-h-[80vh] object-contain"
+                  />
                 </div>
 
                 <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
@@ -275,20 +160,10 @@ const cardData = cards.map((c) => ({
             </div>
           </div>
 
-          <style>
-            .pill {
-              font-size: 10px;
-              padding: 2px 6px;
-              border-radius: 999px;
-              border: 1px solid rgba(39, 39, 42, 1);
-              background: rgba(24, 24, 27, 0.75);
-              color: rgba(212, 212, 216, 1);
-              line-height: 1.2;
-            }
-          </style>
+          {/* Inline script (no libs) */}
+          <script define:vars={{ images, folder, set }}>
+            const urls = images.map((img) => `/cards/${folder}/${set}/${img}`);
 
-          {/* Inline script */}
-          <script define:vars={{ cardData }}>
             const lb = document.getElementById("lightbox");
             const lbImg = document.getElementById("lb-img");
             const lbLabel = document.getElementById("lb-label");
@@ -298,28 +173,12 @@ const cardData = cards.map((c) => ({
 
             let idx = 0;
 
-            function labelFor(c) {
-              const bits = [];
-              if (c.player) bits.push(c.player);
-              if (c.team) bits.push(c.team);
-
-              const tags = [];
-              if (c.rc) tags.push("RC");
-              if (c.parallel) tags.push(c.parallel);
-              if (c.numbered) tags.push(`#${c.numbered}`);
-
-              return tags.length ? `${bits.join(" • ")} — ${tags.join(" • ")}` : bits.join(" • ");
-            }
-
             function show(i) {
-              idx = (i + cardData.length) % cardData.length;
-              const c = cardData[idx];
-
-              lbImg.src = c.url;
-              lbImg.alt = c.file;
-              lbLabel.textContent = labelFor(c);
-              lbCount.textContent = `${idx + 1} / ${cardData.length}`;
-
+              idx = (i + urls.length) % urls.length;
+              lbImg.src = urls[idx];
+              lbImg.alt = images[idx];
+              lbLabel.textContent = images[idx];
+              lbCount.textContent = `${idx + 1} / ${urls.length}`;
               lb.classList.remove("hidden");
               lb.classList.add("flex");
               lb.setAttribute("aria-hidden", "false");

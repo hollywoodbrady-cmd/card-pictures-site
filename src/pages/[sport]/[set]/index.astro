@@ -398,83 +398,111 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
           {/* Inline script (search/filter + lightbox) */}
           <script define:vars={{ cards }}>
-            const urls = cards.map((c) => c.urlFull);
-            const labels = cards.map((c) => c.img);
+  const urls = cards.map((c) => c.urlFull);
+  const labels = cards.map((c) => c.img);
 
-            const lb = document.getElementById("lightbox");
-            const lbImg = document.getElementById("lb-img");
-            const lbLabel = document.getElementById("lb-label");
-            const lbCount = document.getElementById("lb-count");
-            const prevBtn = document.getElementById("lb-prev");
-            const nextBtn = document.getElementById("lb-next");
+  const lb = document.getElementById("lightbox");
+  const lbImg = document.getElementById("lb-img");
+  const lbLabel = document.getElementById("lb-label");
+  const lbCount = document.getElementById("lb-count");
+  const prevBtn = document.getElementById("lb-prev");
+  const nextBtn = document.getElementById("lb-next");
 
-            const q = document.getElementById("q");
-            const grid = document.getElementById("grid");
-            const chips = Array.from(document.querySelectorAll(".chip"));
+  const q = document.getElementById("q");
+  const grid = document.getElementById("grid");
+  const chips = Array.from(document.querySelectorAll(".chip"));
 
-            let idx = 0;
-            let active = "all";
+  let active = "all";
 
-            function show(i) {
-              idx = (i + urls.length) % urls.length;
-              lbImg.src = urls[idx];
-              lbImg.alt = labels[idx];
-              lbLabel.textContent = labels[idx];
-              lbCount.textContent = `${idx + 1} / ${urls.length}`;
-              lb.classList.remove("hidden");
-              lb.classList.add("flex");
-              lb.setAttribute("aria-hidden", "false");
-            }
+  // Visible list = indexes of cards currently shown in the grid
+  let visible = [];
+  let pos = 0; // position inside visible[]
 
-            function close() {
-              lb.classList.add("hidden");
-              lb.classList.remove("flex");
-              lb.setAttribute("aria-hidden", "true");
-              lbImg.src = "";
-            }
+  function tiles() {
+    return Array.from(grid?.querySelectorAll(".tile") || []);
+  }
 
-            function applyFilter() {
-              const term = (q?.value || "").toLowerCase().trim();
-              const tiles = Array.from(grid?.querySelectorAll(".tile") || []);
+  function recomputeVisible() {
+    visible = tiles()
+      .filter((el) => el.style.display !== "none")
+      .map((el) => parseInt(el.getAttribute("data-open") || "0", 10));
+  }
 
-              tiles.forEach((el) => {
-                const hay = (el.getAttribute("data-q") || "");
-                const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
+  function openByPos(newPos) {
+    if (!visible.length) return;
 
-                const matchesText = !term || hay.includes(term);
-                const matchesTag = active === "all" || tags.includes(active);
+    pos = (newPos + visible.length) % visible.length;
+    const idx = visible[pos];
 
-                el.style.display = (matchesText && matchesTag) ? "" : "none";
-              });
-            }
+    lbImg.src = urls[idx];
+    lbImg.alt = labels[idx];
+    lbLabel.textContent = labels[idx];
+    lbCount.textContent = `${pos + 1} / ${visible.length}`;
 
-            document.querySelectorAll("[data-open]").forEach((btn) => {
-              btn.addEventListener("click", () => show(parseInt(btn.dataset.open, 10)));
-            });
+    lb.classList.remove("hidden");
+    lb.classList.add("flex");
+    lb.setAttribute("aria-hidden", "false");
+  }
 
-            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", close));
+  function close() {
+    lb.classList.add("hidden");
+    lb.classList.remove("flex");
+    lb.setAttribute("aria-hidden", "true");
+    lbImg.src = "";
+  }
 
-            prevBtn.addEventListener("click", () => show(idx - 1));
-            nextBtn.addEventListener("click", () => show(idx + 1));
+  function applyFilter() {
+    const term = (q?.value || "").toLowerCase().trim();
 
-            q?.addEventListener("input", applyFilter);
+    tiles().forEach((el) => {
+      const hay = el.getAttribute("data-q") || "";
+      const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
 
-            chips.forEach((btn) => {
-              btn.addEventListener("click", () => {
-                chips.forEach((b) => b.classList.remove("is-active"));
-                btn.classList.add("is-active");
-                active = btn.getAttribute("data-filter") || "all";
-                applyFilter();
-              });
-            });
+      const matchesText = !term || hay.includes(term);
+      const matchesTag = active === "all" || tags.includes(active);
 
-            window.addEventListener("keydown", (e) => {
-              if (!lb || lb.classList.contains("hidden")) return;
-              if (e.key === "Escape") close();
-              if (e.key === "ArrowLeft") show(idx - 1);
-              if (e.key === "ArrowRight") show(idx + 1);
-            });
-          </script>
+      el.style.display = matchesText && matchesTag ? "" : "none";
+    });
+
+    recomputeVisible();
+  }
+
+  // Clicking a tile opens lightbox at the right position inside the visible list
+  document.querySelectorAll("[data-open]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      applyFilter(); // ensure visible[] is current
+      const idx = parseInt(btn.getAttribute("data-open") || "0", 10);
+      const p = visible.indexOf(idx);
+      if (p >= 0) openByPos(p);
+    });
+  });
+
+  lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", close));
+  prevBtn.addEventListener("click", () => openByPos(pos - 1));
+  nextBtn.addEventListener("click", () => openByPos(pos + 1));
+
+  q?.addEventListener("input", applyFilter);
+
+  chips.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      chips.forEach((b) => b.classList.remove("is-active"));
+      btn.classList.add("is-active");
+      active = btn.getAttribute("data-filter") || "all";
+      applyFilter();
+    });
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (!lb || lb.classList.contains("hidden")) return;
+    if (e.key === "Escape") close();
+    if (e.key === "ArrowLeft") openByPos(pos - 1);
+    if (e.key === "ArrowRight") openByPos(pos + 1);
+  });
+
+  // Initial compute so count/nav works immediately
+  recomputeVisible();
+</script>
+
         </>
       )}
     </main>

@@ -11,125 +11,28 @@ function niceName(slug: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Very simple metadata inference from filename (no DB)
-type CardMeta = {
-  file: string;
-  url: string;
-  label: string;
-  tags: string[]; // "rc", "auto", "patch", "numbered", "parallel"
+type MetaEntry = {
+  player?: string;
+  team?: string;
+  rc?: boolean;
+  parallel?: string | null;
+  numbered?: string | null; // ex: "12/25"
 };
 
-function inferTagsFromFilename(filename: string): string[] {
-  const base = filename.replace(/\.[^.]+$/, "").toLowerCase();
-  const tags: string[] = [];
+type MetaMap = Record<string, MetaEntry>;
 
-  // RC
-  if (/\brc\b/.test(base) || base.includes("rookie")) tags.push("rc");
+type Card = {
+  file: string;
+  url: string;
+  player: string;
+  team: string;
+  parallel: string | null;
+  numbered: string | null;
+  rc: boolean;
+};
 
-  // Auto
-  if (base.includes("auto") || base.includes("autograph") || base.includes("signature") || /\bsig\b/.test(base))
-    tags.push("auto");
-
-  // Patch / relic
-  if (base.includes("patch") || base.includes("relic") || base.includes("jersey"))
-    tags.push("patch");
-
-  // Numbered (#/## or ##of##)
-  if (/\d+\s*\/\s*\d+/.test(base) || /\d+\s*of\s*\d+/.test(base) || base.includes("numbered"))
-    tags.push("numbered");
-
-  // Parallel-ish hints
-  const parallelHints = [
-    "parallel",
-    "prizm",
-    "refractor",
-    "holo",
-    "foil",
-    "wave",
-    "scope",
-    "mosaic",
-    "chrome",
-    "gold",
-    "silver",
-    "red",
-    "blue",
-    "green",
-    "purple",
-    "black",
-    "orange",
-    "pink",
-  ];
-  if (parallelHints.some((w) => base.includes(w))) tags.push("parallel");
-
-  // unique
-  return Array.from(new Set(tags));
-}
-
-// Tries to pull a "player-like" label from your filename format:
-// "2025-topps-basketball-ace-bailey-clutch-2025.webp" -> "Ace Bailey"
-function labelFromFilename(filename: string, sport: string): string {
-  const raw = filename.replace(/\.[^.]+$/, "");
-  const parts = raw.split(/[-_]+/g).filter(Boolean);
-  const lower = parts.map((p) => p.toLowerCase());
-
-  // find sport token location if present
-  const si = lower.indexOf(sport.toLowerCase());
-
-  // candidate tokens after sport until we hit something "stop-ish"
-  const stop = new Set([
-    "rc",
-    "rookie",
-    "auto",
-    "autograph",
-    "signature",
-    "sig",
-    "patch",
-    "relic",
-    "jersey",
-    "parallel",
-    "prizm",
-    "refractor",
-    "holo",
-    "foil",
-    "wave",
-    "scope",
-    "mosaic",
-    "chrome",
-    "gold",
-    "silver",
-    "red",
-    "blue",
-    "green",
-    "purple",
-    "black",
-    "orange",
-    "pink",
-    "base",
-    "insert",
-    "sp",
-    "ssp",
-  ]);
-
-  const isYear = (t: string) => /^\d{4}$/.test(t);
-  const isNumberedToken = (t: string) => /^\d+\/\d+$/.test(t) || /^\d+of\d+$/i.test(t);
-
-  const after = si >= 0 ? parts.slice(si + 1) : parts.slice();
-
-  const nameTokens: string[] = [];
-  for (const t of after) {
-    const tl = t.toLowerCase();
-    if (isYear(tl)) break;
-    if (stop.has(tl)) break;
-    if (isNumberedToken(tl)) break;
-    // also stop on common set words you might include later
-    if (tl === "topps" || tl === "panini") continue; // ignore brand tokens if they appear here
-    nameTokens.push(t);
-    // We only want first + last for now to keep labels short
-    if (nameTokens.length >= 2) break;
-  }
-
-  if (nameTokens.length === 0) return niceName(raw);
-  return niceName(nameTokens.join(" "));
+function stripExt(file: string) {
+  return file.replace(/\.[^.]+$/, "");
 }
 
 export async function getStaticPaths() {
@@ -165,19 +68,81 @@ const folder =
 
 const setDir = path.join(baseDir, folder, set);
 
+// Read images
 const files = await fs.readdir(setDir).catch(() => []);
 const images = files
   .filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f))
   .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-const cards: CardMeta[] = images.map((img) => ({
-  file: img,
-  url: `/cards/${folder}/${set}/${img}`,
-  label: labelFromFilename(img, sport),
-  tags: inferTagsFromFilename(img),
-}));
+// Read metadata
+let meta: MetaMap = {};
+let metaError: string | null = null;
+
+try {
+  const raw = await fs.readFile(path.join(setDir, "cards.meta.json"), "utf8");
+  meta = JSON.parse(raw);
+} catch (e: any) {
+  // If the file doesn't exist, that's fine. If it exists but is invalid, show a warning.
+  // We only store the error message; page still works.
+  meta = {};
+  // Try to detect if file exists to avoid warning on "no file"
+  try {
+    await fs.access(path.join(setDir, "cards.meta.json"));
+    metaError = e?.message ?? "Invalid cards.meta.json";
+  } catch {
+    metaError = null;
+  }
+}
+
+// Build a case-insensitive lookup map for meta keys
+const metaLower = new Map<string, MetaEntry>();
+for (const [k, v] of Object.entries(meta)) {
+  metaLower.set(k.toLowerCase(), v);
+}
+
+function getMetaForImage(img: string): MetaEntry {
+  // exact key
+  if (meta[img]) return meta[img];
+
+  // case-insensitive exact filename
+  const lowerHit = metaLower.get(img.toLowerCase());
+  if (lowerHit) return lowerHit;
+
+  // try without extension
+  const base = stripExt(img);
+  if (meta[base]) return meta[base];
+  const baseLowerHit = metaLower.get(base.toLowerCase());
+  if (baseLowerHit) return baseLowerHit;
+
+  return {};
+}
+
+const cards: Card[] = images.map((img) => {
+  const m = getMetaForImage(img);
+
+  return {
+    file: img,
+    url: `/cards/${folder}/${set}/${img}`,
+    player: (m.player ?? "").trim() || niceName(stripExt(img)),
+    team: (m.team ?? "").trim() || "",
+    parallel: m.parallel ?? null,
+    numbered: m.numbered ?? null,
+    rc: Boolean(m.rc),
+  };
+});
 
 const title = `${niceName(sport)} • ${niceName(set)}`;
+
+// For the lightbox script
+const cardData = cards.map((c) => ({
+  url: c.url,
+  file: c.file,
+  player: c.player,
+  team: c.team,
+  parallel: c.parallel,
+  numbered: c.numbered,
+  rc: c.rc,
+}));
 ---
 
 <html lang="en">
@@ -200,32 +165,23 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
       <div class="mt-6">
         <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
         <p class="mt-2 text-zinc-300">
-          {niceName(sport)} • {images.length} card{images.length === 1 ? "" : "s"}
+          {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
         </p>
       </div>
 
-      {/* Controls (safe + simple) */}
-      <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex-1">
-          <input
-            id="q"
-            type="search"
-            placeholder="Search… (filters by filename / player label / tags)"
-            class="w-full rounded-xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-          />
+      {metaError && (
+        <div class="mt-4 rounded-xl ring-1 ring-red-900/50 bg-red-950/20 p-4 text-sm text-red-200">
+          <div class="font-semibold">cards.meta.json problem</div>
+          <div class="mt-1 text-red-200/90">
+            {metaError}
+          </div>
+          <div class="mt-2 text-red-200/80">
+            Fix it so it is ONE valid JSON object, and keys match the exact filename (including .webp).
+          </div>
         </div>
+      )}
 
-        <div class="flex flex-wrap gap-2">
-          <button class="chip is-active" data-filter="all">All</button>
-          <button class="chip" data-filter="rc">RC</button>
-          <button class="chip" data-filter="auto">Auto</button>
-          <button class="chip" data-filter="patch">Patch</button>
-          <button class="chip" data-filter="numbered">#’d</button>
-          <button class="chip" data-filter="parallel">Parallel</button>
-        </div>
-      </div>
-
-      {images.length === 0 ? (
+      {cards.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
           No images found in{" "}
           <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
@@ -234,15 +190,13 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
         </div>
       ) : (
         <>
-          {/* THUMB GRID (smaller + tighter) */}
-          <section id="grid" class="mt-6 flex flex-wrap gap-2">
+          {/* THUMB GRID (small + info) */}
+          <section class="mt-6 flex flex-wrap gap-2">
             {cards.map((c, i) => (
               <button
                 type="button"
-                class="group w-[110px] sm:w-[120px] md:w-[130px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
+                class="group w-[125px] sm:w-[140px] md:w-[155px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition text-left"
                 data-open={i}
-                data-search={`${c.file} ${c.label} ${c.tags.join(" ")}`.toLowerCase()}
-                data-tags={c.tags.join(",")}
                 aria-label={`Open ${c.file}`}
                 title={c.file}
               >
@@ -255,17 +209,20 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   />
                 </div>
 
-                {/* Card label + small tags */}
-                <div class="px-2 py-1.5 text-left">
-                  <div class="text-[11px] font-medium text-zinc-200 truncate">
-                    {c.label}
+                {/* INFO (Name / Team / badges) */}
+                <div class="px-2 py-2">
+                  <div class="text-xs font-semibold text-zinc-100 truncate">
+                    {c.player}
                   </div>
+
+                  <div class="mt-0.5 text-[11px] text-zinc-400 truncate">
+                    {c.team || " "}
+                  </div>
+
                   <div class="mt-1 flex flex-wrap gap-1">
-                    {c.tags.includes("rc") && <span class="pill">RC</span>}
-                    {c.tags.includes("auto") && <span class="pill">AUTO</span>}
-                    {c.tags.includes("patch") && <span class="pill">PATCH</span>}
-                    {c.tags.includes("numbered") && <span class="pill">#</span>}
-                    {c.tags.includes("parallel") && <span class="pill">PAR</span>}
+                    {c.rc && <span class="pill">RC</span>}
+                    {c.parallel && <span class="pill">{c.parallel}</span>}
+                    {c.numbered && <span class="pill">#{c.numbered}</span>}
                   </div>
                 </div>
               </button>
@@ -283,7 +240,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             <div class="relative w-full max-w-4xl">
               <div class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 overflow-hidden">
                 <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                  <div class="text-sm text-zinc-300 truncate" id="lb-label"></div>
+                  <div class="text-sm text-zinc-200 truncate" id="lb-label"></div>
                   <button
                     type="button"
                     class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
@@ -294,7 +251,6 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                 </div>
 
                 <div class="bg-black/30">
-                  {/* Big view: contains inside, not full-screen huge */}
                   <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
                 </div>
 
@@ -319,25 +275,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             </div>
           </div>
 
-          {/* Styles for chips/pills (tiny + safe) */}
           <style>
-            .chip {
-              border-radius: 999px;
-              padding: 10px 12px;
-              font-size: 12px;
-              line-height: 1;
-              background: rgba(9, 9, 11, 1);
-              border: 1px solid rgba(39, 39, 42, 1);
-              color: rgba(212, 212, 216, 1);
-              transition: 0.15s ease;
-              white-space: nowrap;
-            }
-            .chip:hover { border-color: rgba(82, 82, 91, 1); }
-            .chip.is-active {
-              background: rgba(24, 24, 27, 0.85);
-              border-color: rgba(82, 82, 91, 1);
-              color: #fff;
-            }
             .pill {
               font-size: 10px;
               padding: 2px 6px;
@@ -345,13 +283,12 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               border: 1px solid rgba(39, 39, 42, 1);
               background: rgba(24, 24, 27, 0.75);
               color: rgba(212, 212, 216, 1);
+              line-height: 1.2;
             }
           </style>
 
-          {/* Inline script (no libs) */}
-          <script define:vars={{ images, folder, set }}>
-            const urls = images.map((img) => `/cards/${folder}/${set}/${img}`);
-
+          {/* Inline script */}
+          <script define:vars={{ cardData }}>
             const lb = document.getElementById("lightbox");
             const lbImg = document.getElementById("lb-img");
             const lbLabel = document.getElementById("lb-label");
@@ -361,12 +298,28 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
             let idx = 0;
 
+            function labelFor(c) {
+              const bits = [];
+              if (c.player) bits.push(c.player);
+              if (c.team) bits.push(c.team);
+
+              const tags = [];
+              if (c.rc) tags.push("RC");
+              if (c.parallel) tags.push(c.parallel);
+              if (c.numbered) tags.push(`#${c.numbered}`);
+
+              return tags.length ? `${bits.join(" • ")} — ${tags.join(" • ")}` : bits.join(" • ");
+            }
+
             function show(i) {
-              idx = (i + urls.length) % urls.length;
-              lbImg.src = urls[idx];
-              lbImg.alt = images[idx];
-              lbLabel.textContent = images[idx];
-              lbCount.textContent = `${idx + 1} / ${urls.length}`;
+              idx = (i + cardData.length) % cardData.length;
+              const c = cardData[idx];
+
+              lbImg.src = c.url;
+              lbImg.alt = c.file;
+              lbLabel.textContent = labelFor(c);
+              lbCount.textContent = `${idx + 1} / ${cardData.length}`;
+
               lb.classList.remove("hidden");
               lb.classList.add("flex");
               lb.setAttribute("aria-hidden", "false");
@@ -393,38 +346,6 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               if (e.key === "Escape") close();
               if (e.key === "ArrowLeft") show(idx - 1);
               if (e.key === "ArrowRight") show(idx + 1);
-            });
-
-            // Search + quick filters
-            const q = document.getElementById("q");
-            const grid = document.getElementById("grid");
-            const chips = Array.from(document.querySelectorAll(".chip"));
-            let active = "all";
-
-            function apply() {
-              const term = (q?.value || "").toLowerCase().trim();
-              const tiles = Array.from(grid.querySelectorAll("[data-search]"));
-
-              tiles.forEach((el) => {
-                const hay = el.getAttribute("data-search") || "";
-                const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
-
-                const okText = !term || hay.includes(term);
-                const okTag = active === "all" || tags.includes(active);
-
-                el.style.display = okText && okTag ? "" : "none";
-              });
-            }
-
-            q?.addEventListener("input", apply);
-
-            chips.forEach((btn) => {
-              btn.addEventListener("click", () => {
-                chips.forEach((b) => b.classList.remove("is-active"));
-                btn.classList.add("is-active");
-                active = btn.getAttribute("data-filter") || "all";
-                apply();
-              });
             });
           </script>
         </>

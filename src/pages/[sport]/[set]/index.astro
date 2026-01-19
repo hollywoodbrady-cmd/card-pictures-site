@@ -12,12 +12,7 @@ function niceName(slug: string) {
 }
 
 // ---------- OPTIONAL per-card overrides ----------
-// If you create: public/cards/<sport>/<set>/meta.json
-// Example:
-// {
-//   "2025-topps-basketball-ace-bailey-clutch-2025.webp": { "player":"Ace Bailey", "team":"", "rc": true, "parallel":"Clutch" },
-//   "some-card.webp": { "player":"...", "team":"Dbacks", "numbered":"12/25", "auto": true }
-// }
+// Create: public/cards/<sport>/<set>/meta.json
 type MetaMap = Record<
   string,
   Partial<{
@@ -34,7 +29,6 @@ type MetaMap = Record<
 function inferFromFilename(filename: string) {
   const base = filename.replace(/\.[^.]+$/, "");
   const parts = base.split(/[-_]+/g).filter(Boolean);
-
   const lower = base.toLowerCase();
 
   // tags
@@ -50,8 +44,7 @@ function inferFromFilename(filename: string) {
   if (m1) numbered = `${m1[1]}/${m1[2]}`;
   if (m2) numbered = `${m2[1]}/${m2[2]}`;
 
-  // crude "player" inference:
-  // take tokens after sport token if present, stop before year-like token
+  // crude player inference
   const sportTokens = new Set(["baseball", "basketball", "football"]);
   let sportIndex = -1;
   for (let i = 0; i < parts.length; i++) {
@@ -62,24 +55,8 @@ function inferFromFilename(filename: string) {
   }
 
   const stopWords = new Set([
-    "rc",
-    "rookie",
-    "auto",
-    "autograph",
-    "sig",
-    "signature",
-    "patch",
-    "relic",
-    "jersey",
-    "numbered",
-    "parallel",
-    "prizm",
-    "refractor",
-    "holo",
-    "foil",
-    "mosaic",
-    "scope",
-    "wave",
+    "rc","rookie","auto","autograph","sig","signature","patch","relic","jersey",
+    "numbered","parallel","prizm","refractor","holo","foil","mosaic","scope","wave",
   ]);
 
   const isYear = (t: string) => /^\d{4}$/.test(t);
@@ -94,10 +71,27 @@ function inferFromFilename(filename: string) {
     nameParts.push(t);
   }
 
-  const player =
-    nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
+  const player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
 
   return { player, rc, auto, patch, numbered, parallel };
+}
+
+function isImageFile(f: string) {
+  return /\.(webp|png|jpe?g|gif)$/i.test(f);
+}
+
+async function dirExists(p: string) {
+  try {
+    const st = await fs.stat(p);
+    return st.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function toUrl(folder: string, set: string, sub: string | null, file: string) {
+  const mid = sub ? `/${sub}` : "";
+  return `/cards/${folder}/${set}${mid}/${file}`;
 }
 
 export async function getStaticPaths() {
@@ -115,7 +109,6 @@ export async function getStaticPaths() {
     const sportDir = path.join(baseDir, folder);
     const entries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
     const sets = entries.filter((e) => e.isDirectory()).map((e) => e.name);
-
     for (const set of sets) paths.push({ params: { sport, set } });
   }
 
@@ -128,20 +121,41 @@ const set = (Astro.params.set ?? "").toString();
 // Case-safe folder for runtime render
 const baseDir = path.join(process.cwd(), "public", "cards");
 const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
-
-// actual on-disk folder casing for sport
 const folder =
   baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
 
 const setDir = path.join(baseDir, folder, set);
 
-// read images
-const files = await fs.readdir(setDir).catch(() => []);
-const images = files
-  .filter((f) => /\.(webp|png|jpe?g|gif)$/i.test(f))
-  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+// Prefer these subfolders if present
+const frontWebpDir = path.join(setDir, "front-webp");
+const thumbsDir = path.join(setDir, "thumbs");
 
-// optional meta.json
+const hasFrontWebp = await dirExists(frontWebpDir);
+const hasThumbs = await dirExists(thumbsDir);
+
+// Full-size source directory (lightbox)
+const fullDir = hasFrontWebp ? frontWebpDir : setDir;
+const fullSub = hasFrontWebp ? "front-webp" : null;
+
+// Thumb source directory (grid)
+const thumbDir = hasThumbs ? thumbsDir : fullDir;
+const thumbSub = hasThumbs ? "thumbs" : fullSub;
+
+// Read full images
+const fullFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
+fullFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+// Read thumbs (optional)
+const thumbFiles = (await fs.readdir(thumbDir).catch(() => [])).filter(isImageFile);
+thumbFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+// map thumbs by basename so thumbs can match full images
+const thumbByBase = new Map<string, string>();
+for (const f of thumbFiles) {
+  thumbByBase.set(f.replace(/\.[^.]+$/, ""), f);
+}
+
+// optional meta.json at set root
 let meta: MetaMap = {};
 try {
   const metaPath = path.join(setDir, "meta.json");
@@ -151,8 +165,8 @@ try {
   // no meta.json, that's fine
 }
 
-// build card objects (safe JSON for define:vars)
-const cards = images.map((img) => {
+// Build cards list based on fullFiles (fronts)
+const cards = fullFiles.map((img) => {
   const inferred = inferFromFilename(img);
   const m = meta[img] ?? {};
 
@@ -163,7 +177,7 @@ const cards = images.map((img) => {
   const auto = Boolean(m.auto ?? inferred.auto);
   const patch = Boolean(m.patch ?? inferred.patch);
   const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
-  const parallelText = (m.parallel ?? "").toString(); // optional label
+  const parallelText = (m.parallel ?? "").toString();
   const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
@@ -174,9 +188,13 @@ const cards = images.map((img) => {
     parallel ? "parallel" : "",
   ].filter(Boolean);
 
+  const base = img.replace(/\.[^.]+$/, "");
+  const thumbName = thumbByBase.get(base) ?? img;
+
   return {
     img,
-    url: `/cards/${folder}/${set}/${img}`,
+    urlFull: toUrl(folder, set, fullSub, img),
+    urlThumb: toUrl(folder, set, thumbSub, thumbName),
     player,
     team,
     rc,
@@ -185,7 +203,7 @@ const cards = images.map((img) => {
     numbered,
     parallel,
     parallelText,
-    tags, // for filtering
+    tags,
   };
 });
 
@@ -223,7 +241,12 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
       <div class="mt-6">
         <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
         <p class="mt-2 text-zinc-300">
-          {niceName(sport)} • {images.length} card{images.length === 1 ? "" : "s"}
+          {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
+        </p>
+
+        <p class="mt-2 text-xs text-zinc-500">
+          Grid: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{thumbSub ?? "(set root)"}</code>
+          &nbsp;•&nbsp; Lightbox: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{fullSub ?? "(set root)"}</code>
         </p>
       </div>
 
@@ -248,16 +271,22 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
         </div>
       </div>
 
-      {images.length === 0 ? (
+      {cards.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
-          No images found in{" "}
-          <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-            public/cards/{folder}/{set}/
-          </code>
+          No images found. Put card images in:
+          <div class="mt-2 text-sm text-zinc-400">
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{folder}/{set}/front-webp/
+            </code>
+            {" "}and thumbs in{" "}
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{folder}/{set}/thumbs/
+            </code>
+          </div>
         </div>
       ) : (
         <>
-          {/* THUMB GRID (small + tighter padding) */}
+          {/* THUMB GRID */}
           <section class="mt-6 flex flex-wrap gap-3" id="grid">
             {cards.map((c, i) => (
               <button
@@ -271,14 +300,13 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               >
                 <div class="aspect-[3/4] bg-zinc-900/25">
                   <img
-                    src={c.url}
+                    src={c.urlThumb}
                     alt={c.img}
                     loading="lazy"
                     class="h-full w-full object-contain p-1.5 group-hover:scale-[1.02] transition"
                   />
                 </div>
 
-                {/* small caption + badges */}
                 <div class="px-2 py-2">
                   <div class="text-xs font-medium text-zinc-200 truncate">{c.player}</div>
 
@@ -316,13 +344,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                 </div>
 
                 <div class="bg-black/30">
-                  {/* Big view: contains inside, not full-screen huge */}
-                  <img
-                    id="lb-img"
-                    src=""
-                    alt=""
-                    class="w-full max-h-[80vh] object-contain"
-                  />
+                  <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
                 </div>
 
                 <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
@@ -375,8 +397,9 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           </style>
 
           {/* Inline script (search/filter + lightbox) */}
-          <script define:vars={{ images, folder, set }}>
-            const urls = images.map((img) => `/cards/${folder}/${set}/${img}`);
+          <script define:vars={{ cards }}>
+            const urls = cards.map((c) => c.urlFull);
+            const labels = cards.map((c) => c.img);
 
             const lb = document.getElementById("lightbox");
             const lbImg = document.getElementById("lb-img");
@@ -395,8 +418,8 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             function show(i) {
               idx = (i + urls.length) % urls.length;
               lbImg.src = urls[idx];
-              lbImg.alt = images[idx];
-              lbLabel.textContent = images[idx];
+              lbImg.alt = labels[idx];
+              lbLabel.textContent = labels[idx];
               lbCount.textContent = `${idx + 1} / ${urls.length}`;
               lb.classList.remove("hidden");
               lb.classList.add("flex");

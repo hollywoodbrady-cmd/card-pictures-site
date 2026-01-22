@@ -52,7 +52,9 @@ function inferFromFilename(filename: string) {
   // keep patch as a separate bool if you ever want it
   const patch = /\bpatch\b/i.test(lower);
 
-  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin/i.test(lower);
+  const tinType = /\btin\b/i.test(lower);
+const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin/i.test(lower);
+
 
   // numbered patterns: "12of25" or "12/25" or "07of50"
   let numbered: string | null = null;
@@ -107,7 +109,7 @@ function inferFromFilename(filename: string) {
 
   const player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
 
-  return { player, rc, auto, relic, patch, numbered, parallel };
+  return { player, rc, auto, relic, patch, numbered, parallel, tinType };
 }
 
 function isImageFile(f: string) {
@@ -219,8 +221,8 @@ const cards = fullFiles.map((img) => {
   // ✅ allow meta.numbered to override, otherwise inferred already padded to 01/50 style
   const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
 
-  const parallelText = (m.parallel ?? "").toString();
-  const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
+const parallelText = (m.parallel ?? (inferred.tinType ? "Tin Type" : "")).toString();
+const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
     rc ? "rc" : "",

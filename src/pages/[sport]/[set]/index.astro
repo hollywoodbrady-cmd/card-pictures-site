@@ -43,7 +43,10 @@ function inferFromFilename(filename: string) {
   const lower = base.toLowerCase();
 
   // tags
-  const rc = /\brc\b|rookie/i.test(lower);
+  const rc =
+  /(^|[-_])rc($|[-_])/i.test(lower) ||     // rc as its own token (rc, _rc_, -rc-)
+  /rookie/i.test(lower);                   // or the word rookie
+
   const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
 
   // ✅ Relic detection (treat patch/jersey/relic as relic)

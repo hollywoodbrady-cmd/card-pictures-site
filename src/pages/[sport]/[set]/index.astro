@@ -230,7 +230,9 @@ const cards = fullFiles.map((img) => {
   return {
     img,
     urlFull: toUrl(folder, set, fullSub, img),
-    urlThumb: toUrl(folder, set, thumbSub, thumbName),
+    urlThumb: thumbName
+    ? toUrl(folder, set, thumbSub, thumbName)
+    : toUrl(folder, set, fullSub, img), // fallback to full image if no thumb exists,
     player,
     team,
     rc,

@@ -13,6 +13,10 @@ function niceName(slug: string) {
 
 // ---------- OPTIONAL per-card overrides ----------
 // Create: public/cards/<sport>/<set>/meta.json
+// Example entry:
+// {
+//   "some-card.webp": { "player":"Paul Molitor", "team":"Brewers", "rc": false, "relic": true, "numbered":"01/50", "parallel":"Tin" }
+// }
 type MetaMap = Record<
   string,
   Partial<{
@@ -20,36 +24,42 @@ type MetaMap = Record<
     team: string;
     rc: boolean;
     auto: boolean;
-    patch: boolean;
-    numbered: string; // e.g. "12/25"
-    parallel: string; // e.g. "Purple Scope"
+    relic: boolean; // ✅ added
+    patch: boolean; // optional legacy
+    numbered: string; // e.g. "01/50"
+    parallel: string; // e.g. "Tin", "Purple Scope"
   }>
 >;
+
+function formatNumbered(num: string, denom: string) {
+  const width = String(denom).length; // 50 -> 2, 199 -> 3
+  const n = String(num).padStart(width, "0"); // 1 -> 01 (or 001)
+  return `${n}/${denom}`;
+}
 
 function inferFromFilename(filename: string) {
   const base = filename.replace(/\.[^.]+$/, "");
   const parts = base.split(/[-_]+/g).filter(Boolean);
   const lower = base.toLowerCase();
 
-  // tags (underscore-safe; "_" is a word char so \b won't work around __rc__)
-  const rc = /(?:^|[-_])rc(?:[-_]|$)|rookie/i.test(lower);
+  // tags
+  const rc = /\brc\b|rookie/i.test(lower);
+  const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
 
-  const auto =
-    /(?:^|[-_])auto(?:[-_]|$)|autograph|signature|(?:^|[-_])sig(?:[-_]|$)/i.test(lower);
+  // ✅ Relic detection (treat patch/jersey/relic as relic)
+  const relic = /\brelic\b|jersey|\bpatch\b/i.test(lower);
 
-  const patch =
-    /(?:^|[-_])patch(?:[-_]|$)|relic|jersey/i.test(lower);
+  // keep patch as a separate bool if you ever want it
+  const patch = /\bpatch\b/i.test(lower);
 
-  const parallel =
-    /(?:^|[-_])parallel(?:[-_]|$)|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower);
+  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin/i.test(lower);
 
-
-  // numbered patterns: "12of25" or "12/25" in filename
+  // numbered patterns: "12of25" or "12/25" or "07of50"
   let numbered: string | null = null;
   const m1 = lower.match(/(\d+)\s*of\s*(\d+)/i);
   const m2 = lower.match(/(\d+)\s*\/\s*(\d+)/);
-  if (m1) numbered = `${m1[1]}/${m1[2]}`;
-  if (m2) numbered = `${m2[1]}/${m2[2]}`;
+  if (m1) numbered = formatNumbered(m1[1], m1[2]);
+  if (m2) numbered = formatNumbered(m2[1], m2[2]);
 
   // crude player inference
   const sportTokens = new Set(["baseball", "basketball", "football"]);
@@ -62,8 +72,25 @@ function inferFromFilename(filename: string) {
   }
 
   const stopWords = new Set([
-    "rc","rookie","auto","autograph","sig","signature","patch","relic","jersey",
-    "numbered","parallel","prizm","refractor","holo","foil","mosaic","scope","wave",
+    "rc",
+    "rookie",
+    "auto",
+    "autograph",
+    "sig",
+    "signature",
+    "relic", // ✅ added
+    "patch",
+    "jersey",
+    "numbered",
+    "parallel",
+    "prizm",
+    "refractor",
+    "holo",
+    "foil",
+    "mosaic",
+    "scope",
+    "wave",
+    "tin",
   ]);
 
   const isYear = (t: string) => /^\d{4}$/.test(t);
@@ -80,7 +107,7 @@ function inferFromFilename(filename: string) {
 
   const player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
 
-  return { player, rc, auto, patch, numbered, parallel };
+  return { player, rc, auto, relic, patch, numbered, parallel };
 }
 
 function isImageFile(f: string) {
@@ -182,15 +209,23 @@ const cards = fullFiles.map((img) => {
 
   const rc = Boolean(m.rc ?? inferred.rc);
   const auto = Boolean(m.auto ?? inferred.auto);
+
+  // ✅ relic can be driven by meta.relic OR meta.patch OR filename patch/jersey/relic
+  const relic = Boolean(m.relic ?? m.patch ?? inferred.relic ?? inferred.patch);
+
+  // optional legacy (not used in UI by default)
   const patch = Boolean(m.patch ?? inferred.patch);
+
+  // ✅ allow meta.numbered to override, otherwise inferred already padded to 01/50 style
   const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
+
   const parallelText = (m.parallel ?? "").toString();
   const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
     rc ? "rc" : "",
     auto ? "auto" : "",
-    patch ? "patch" : "",
+    relic ? "relic" : "",         // ✅ new filter tag
     numbered ? "numbered" : "",
     parallel ? "parallel" : "",
   ].filter(Boolean);
@@ -206,6 +241,7 @@ const cards = fullFiles.map((img) => {
     team,
     rc,
     auto,
+    relic,
     patch,
     numbered,
     parallel,
@@ -272,7 +308,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <button class="chip is-active" type="button" data-filter="all">All</button>
           <button class="chip" type="button" data-filter="rc">RC</button>
           <button class="chip" type="button" data-filter="auto">Auto</button>
-          <button class="chip" type="button" data-filter="patch">Patch</button>
+          <button class="chip" type="button" data-filter="relic">Relic</button>
           <button class="chip" type="button" data-filter="numbered">#’d</button>
           <button class="chip" type="button" data-filter="parallel">Parallel</button>
         </div>
@@ -320,8 +356,8 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   <div class="mt-1 flex flex-wrap gap-1">
                     {c.rc && <span class="pill">RC</span>}
                     {c.auto && <span class="pill">AUTO</span>}
-                    {c.patch && <span class="pill">PATCH</span>}
-                    {c.numbered && <span class="pill">#{c.numbered}</span>}
+                    {c.relic && <span class="pill">RELIC</span>}
+                    {c.numbered && <span class="pill">{c.numbered}</span>}
                     {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
                   </div>
                 </div>
@@ -405,111 +441,86 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
           {/* Inline script (search/filter + lightbox) */}
           <script define:vars={{ cards }}>
-  const urls = cards.map((c) => c.urlFull);
-  const labels = cards.map((c) => c.img);
+            const urls = cards.map((c) => c.urlFull);
+            const labels = cards.map((c) => c.img);
 
-  const lb = document.getElementById("lightbox");
-  const lbImg = document.getElementById("lb-img");
-  const lbLabel = document.getElementById("lb-label");
-  const lbCount = document.getElementById("lb-count");
-  const prevBtn = document.getElementById("lb-prev");
-  const nextBtn = document.getElementById("lb-next");
+            const lb = document.getElementById("lightbox");
+            const lbImg = document.getElementById("lb-img");
+            const lbLabel = document.getElementById("lb-label");
+            const lbCount = document.getElementById("lb-count");
+            const prevBtn = document.getElementById("lb-prev");
+            const nextBtn = document.getElementById("lb-next");
 
-  const q = document.getElementById("q");
-  const grid = document.getElementById("grid");
-  const chips = Array.from(document.querySelectorAll(".chip"));
+            const q = document.getElementById("q");
+            const grid = document.getElementById("grid");
+            const chips = Array.from(document.querySelectorAll(".chip"));
 
-  let active = "all";
+            let idx = 0;
+            let active = "all";
 
-  // Visible list = indexes of cards currently shown in the grid
-  let visible = [];
-  let pos = 0; // position inside visible[]
+            function show(i) {
+              idx = (i + urls.length) % urls.length;
+              lbImg.src = urls[idx];
+              lbImg.alt = labels[idx];
+              lbLabel.textContent = labels[idx];
+              lbCount.textContent = `${idx + 1} / ${urls.length}`;
+              lb.classList.remove("hidden");
+              lb.classList.add("flex");
+              lb.setAttribute("aria-hidden", "false");
+            }
 
-  function tiles() {
-    return Array.from(grid?.querySelectorAll(".tile") || []);
-  }
+            function close() {
+              lb.classList.add("hidden");
+              lb.classList.remove("flex");
+              lb.setAttribute("aria-hidden", "true");
+              lbImg.src = "";
+            }
 
-  function recomputeVisible() {
-    visible = tiles()
-      .filter((el) => el.style.display !== "none")
-      .map((el) => parseInt(el.getAttribute("data-open") || "0", 10));
-  }
+            function applyFilter() {
+              const term = (q?.value || "").toLowerCase().trim();
+              const tiles = Array.from(grid?.querySelectorAll(".tile") || []);
 
-  function openByPos(newPos) {
-    if (!visible.length) return;
+              tiles.forEach((el) => {
+                const hay = (el.getAttribute("data-q") || "");
+                const tags = (el.getAttribute("data-tags") || "")
+                  .split(",")
+                  .map((t) => t.trim().toLowerCase())
+                  .filter(Boolean);
 
-    pos = (newPos + visible.length) % visible.length;
-    const idx = visible[pos];
+                const matchesText = !term || hay.includes(term);
+                const matchesTag = active === "all" || tags.includes(active);
 
-    lbImg.src = urls[idx];
-    lbImg.alt = labels[idx];
-    lbLabel.textContent = labels[idx];
-    lbCount.textContent = `${pos + 1} / ${visible.length}`;
+                el.style.display = (matchesText && matchesTag) ? "" : "none";
+              });
+            }
 
-    lb.classList.remove("hidden");
-    lb.classList.add("flex");
-    lb.setAttribute("aria-hidden", "false");
-  }
+            document.querySelectorAll("[data-open]").forEach((btn) => {
+              btn.addEventListener("click", () => show(parseInt(btn.dataset.open, 10)));
+            });
 
-  function close() {
-    lb.classList.add("hidden");
-    lb.classList.remove("flex");
-    lb.setAttribute("aria-hidden", "true");
-    lbImg.src = "";
-  }
+            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", close));
 
-  function applyFilter() {
-    const term = (q?.value || "").toLowerCase().trim();
+            prevBtn.addEventListener("click", () => show(idx - 1));
+            nextBtn.addEventListener("click", () => show(idx + 1));
 
-    tiles().forEach((el) => {
-      const hay = el.getAttribute("data-q") || "";
-      const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
+            q?.addEventListener("input", applyFilter);
 
-      const matchesText = !term || hay.includes(term);
-      const matchesTag = active === "all" || tags.includes(active);
+            chips.forEach((btn) => {
+              btn.addEventListener("click", () => {
+                chips.forEach((b) => b.classList.remove("is-active"));
+                btn.classList.add("is-active");
+                active = (btn.getAttribute("data-filter") || "all").toLowerCase().trim();
+                applyFilter();
+              });
+            });
 
-      el.style.display = matchesText && matchesTag ? "" : "none";
-    });
-
-    recomputeVisible();
-  }
-
-  // Clicking a tile opens lightbox at the right position inside the visible list
-  document.querySelectorAll("[data-open]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      applyFilter(); // ensure visible[] is current
-      const idx = parseInt(btn.getAttribute("data-open") || "0", 10);
-      const p = visible.indexOf(idx);
-      if (p >= 0) openByPos(p);
-    });
-  });
-
-  lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", close));
-  prevBtn.addEventListener("click", () => openByPos(pos - 1));
-  nextBtn.addEventListener("click", () => openByPos(pos + 1));
-
-  q?.addEventListener("input", applyFilter);
-
-  chips.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      chips.forEach((b) => b.classList.remove("is-active"));
-      btn.classList.add("is-active");
-      active = btn.getAttribute("data-filter") || "all";
-      applyFilter();
-    });
-  });
-
-  window.addEventListener("keydown", (e) => {
-    if (!lb || lb.classList.contains("hidden")) return;
-    if (e.key === "Escape") close();
-    if (e.key === "ArrowLeft") openByPos(pos - 1);
-    if (e.key === "ArrowRight") openByPos(pos + 1);
-  });
-
-  // Initial compute so count/nav works immediately
-  recomputeVisible();
-</script>
-
+            window.addEventListener("keydown", (e) => {
+              if (!lb || lb.classList.contains("hidden")) return;
+              if (e.key === "Escape") close();
+              if (e.key === "ArrowLeft") show(idx - 1);
+              if (e.key === "ArrowRight") show(idx + 1);
+            });
+          </script>
         </>
       )}
     </main>

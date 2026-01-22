@@ -13,10 +13,6 @@ function niceName(slug: string) {
 
 // ---------- OPTIONAL per-card overrides ----------
 // Create: public/cards/<sport>/<set>/meta.json
-// Example entry:
-// {
-//   "some-card.webp": { "player":"Paul Molitor", "team":"Brewers", "rc": false, "relic": true, "numbered":"01/50", "parallel":"Tin" }
-// }
 type MetaMap = Record<
   string,
   Partial<{
@@ -24,17 +20,18 @@ type MetaMap = Record<
     team: string;
     rc: boolean;
     auto: boolean;
-    relic: boolean; // ✅ added
-    patch: boolean; // optional legacy
+    patch: boolean;
+    relic: boolean;
+    tinType: boolean;
     numbered: string; // e.g. "01/50"
-    parallel: string; // e.g. "Tin", "Purple Scope"
+    parallel: string; // e.g. "Purple Scope"
   }>
 >;
 
-function formatNumbered(num: string, denom: string) {
-  const width = String(denom).length; // 50 -> 2, 199 -> 3
-  const n = String(num).padStart(width, "0"); // 1 -> 01 (or 001)
-  return `${n}/${denom}`;
+function formatNumbered(n: string, t: string) {
+  // pad to at least 2 chars, or match total width (handles 02of05 nicely)
+  const w = Math.max(2, t.length);
+  return `${n.padStart(w, "0")}/${t.padStart(w, "0")}`;
 }
 
 function inferFromFilename(filename: string) {
@@ -42,29 +39,35 @@ function inferFromFilename(filename: string) {
   const parts = base.split(/[-_]+/g).filter(Boolean);
   const lower = base.toLowerCase();
 
-  // tags
+  // ✅ FIX: token-aware rc detection (works with __rc__)
   const rc =
-  /(^|[-_])rc($|[-_])/i.test(lower) ||     // rc as its own token (rc, _rc_, -rc-)
-  /rookie/i.test(lower);                   // or the word rookie
+    /(^|[-_])rc($|[-_])/i.test(lower) ||
+    /rookie/i.test(lower);
 
   const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
 
-  // ✅ Relic detection (treat patch/jersey/relic as relic)
-  const relic = /\brelic\b|jersey|\bpatch\b/i.test(lower);
+  // split relic vs patch
+  const relic = /\brelic\b/i.test(lower);
+  const patch = /\bpatch\b|jersey|swatch/i.test(lower);
 
-  // keep patch as a separate bool if you ever want it
-  const patch = /\bpatch\b/i.test(lower);
+  // parallel-ish
+  const parallel =
+    /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower) ||
+    /parallel-/.test(lower);
 
-  const tinType = /\btin\b/i.test(lower);
-const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin/i.test(lower);
+  // Tin Type
+  const tinType = /tin[-_ ]?type|tintype/i.test(lower);
 
-
-  // numbered patterns: "12of25" or "12/25" or "07of50"
+  // numbered patterns:
+  // numbered-02of05, 02of05, 02/05
   let numbered: string | null = null;
-  const m1 = lower.match(/(\d+)\s*of\s*(\d+)/i);
-  const m2 = lower.match(/(\d+)\s*\/\s*(\d+)/);
-  if (m1) numbered = formatNumbered(m1[1], m1[2]);
-  if (m2) numbered = formatNumbered(m2[1], m2[2]);
+  const mA = lower.match(/numbered[-_]?(\d+)of(\d+)/i);
+  const mB = lower.match(/(^|[-_])(\d+)of(\d+)($|[-_])/i);
+  const mC = lower.match(/(\d+)\s*\/\s*(\d+)/);
+
+  if (mA) numbered = formatNumbered(mA[1], mA[2]);
+  else if (mB) numbered = formatNumbered(mB[2], mB[3]);
+  else if (mC) numbered = formatNumbered(mC[1], mC[2]);
 
   // crude player inference
   const sportTokens = new Set(["baseball", "basketball", "football"]);
@@ -77,25 +80,13 @@ const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin/i
   }
 
   const stopWords = new Set([
-    "rc",
-    "rookie",
-    "auto",
-    "autograph",
-    "sig",
-    "signature",
-    "relic", // ✅ added
-    "patch",
-    "jersey",
+    "rc","rookie",
+    "auto","autograph","sig","signature",
+    "patch","jersey","swatch",
+    "relic",
     "numbered",
-    "parallel",
-    "prizm",
-    "refractor",
-    "holo",
-    "foil",
-    "mosaic",
-    "scope",
-    "wave",
-    "tin",
+    "parallel","prizm","refractor","holo","foil","mosaic","scope","wave",
+    "tin","type","tintype","tin-type",
   ]);
 
   const isYear = (t: string) => /^\d{4}$/.test(t);
@@ -107,12 +98,13 @@ const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin/i
     if (isYear(tl)) break;
     if (stopWords.has(tl)) break;
     if (/^\d+of\d+$/i.test(t) || /^\d+\/\d+$/.test(t)) break;
+    if (/^numbered$/i.test(t)) break;
     nameParts.push(t);
   }
 
   const player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
 
-  return { player, rc, auto, relic, patch, numbered, parallel, tinType };
+  return { player, rc, auto, patch, relic, tinType, numbered, parallel };
 }
 
 function isImageFile(f: string) {
@@ -214,23 +206,20 @@ const cards = fullFiles.map((img) => {
 
   const rc = Boolean(m.rc ?? inferred.rc);
   const auto = Boolean(m.auto ?? inferred.auto);
-
-  // ✅ relic can be driven by meta.relic OR meta.patch OR filename patch/jersey/relic
-  const relic = Boolean(m.relic ?? m.patch ?? inferred.relic ?? inferred.patch);
-
-  // optional legacy (not used in UI by default)
   const patch = Boolean(m.patch ?? inferred.patch);
+  const relic = Boolean(m.relic ?? inferred.relic);
+  const tinType = Boolean(m.tinType ?? inferred.tinType);
 
-  // ✅ allow meta.numbered to override, otherwise inferred already padded to 01/50 style
   const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
-
-const parallelText = (m.parallel ?? (inferred.tinType ? "Tin Type" : "")).toString();
-const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
+  const parallelText = (m.parallel ?? "").toString();
+  const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
     rc ? "rc" : "",
     auto ? "auto" : "",
-    relic ? "relic" : "",         // ✅ new filter tag
+    patch ? "patch" : "",
+    relic ? "relic" : "",
+    tinType ? "tin-type" : "",
     numbered ? "numbered" : "",
     parallel ? "parallel" : "",
   ].filter(Boolean);
@@ -246,8 +235,9 @@ const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
     team,
     rc,
     auto,
-    relic,
     patch,
+    relic,
+    tinType,
     numbered,
     parallel,
     parallelText,
@@ -291,11 +281,6 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
         <p class="mt-2 text-zinc-300">
           {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
         </p>
-
-        <p class="mt-2 text-xs text-zinc-500">
-          Grid: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{thumbSub ?? "(set root)"}</code>
-          &nbsp;•&nbsp; Lightbox: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{fullSub ?? "(set root)"}</code>
-        </p>
       </div>
 
       <!-- Search + quick filters -->
@@ -313,24 +298,17 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <button class="chip is-active" type="button" data-filter="all">All</button>
           <button class="chip" type="button" data-filter="rc">RC</button>
           <button class="chip" type="button" data-filter="auto">Auto</button>
+          <button class="chip" type="button" data-filter="patch">Patch</button>
           <button class="chip" type="button" data-filter="relic">Relic</button>
           <button class="chip" type="button" data-filter="numbered">#’d</button>
           <button class="chip" type="button" data-filter="parallel">Parallel</button>
+          <button class="chip" type="button" data-filter="tin-type">Tin Type</button>
         </div>
       </div>
 
       {cards.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
-          No images found. Put card images in:
-          <div class="mt-2 text-sm text-zinc-400">
-            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-              public/cards/{folder}/{set}/front-webp/
-            </code>
-            {" "}and thumbs in{" "}
-            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-              public/cards/{folder}/{set}/thumbs/
-            </code>
-          </div>
+          No images found.
         </div>
       ) : (
         <>
@@ -361,8 +339,10 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   <div class="mt-1 flex flex-wrap gap-1">
                     {c.rc && <span class="pill">RC</span>}
                     {c.auto && <span class="pill">AUTO</span>}
+                    {c.patch && <span class="pill">PATCH</span>}
                     {c.relic && <span class="pill">RELIC</span>}
-                    {c.numbered && <span class="pill">{c.numbered}</span>}
+                    {c.tinType && <span class="pill">TIN</span>}
+                    {c.numbered && <span class="pill">#{c.numbered}</span>}
                     {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
                   </div>
                 </div>
@@ -487,10 +467,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
               tiles.forEach((el) => {
                 const hay = (el.getAttribute("data-q") || "");
-                const tags = (el.getAttribute("data-tags") || "")
-                  .split(",")
-                  .map((t) => t.trim().toLowerCase())
-                  .filter(Boolean);
+                const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
 
                 const matchesText = !term || hay.includes(term);
                 const matchesTag = active === "all" || tags.includes(active);
@@ -514,7 +491,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               btn.addEventListener("click", () => {
                 chips.forEach((b) => b.classList.remove("is-active"));
                 btn.classList.add("is-active");
-                active = (btn.getAttribute("data-filter") || "all").toLowerCase().trim();
+                active = btn.getAttribute("data-filter") || "all";
                 applyFilter();
               });
             });

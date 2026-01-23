@@ -22,102 +22,10 @@ type MetaMap = Record<
     auto: boolean;
     patch: boolean;
     relic: boolean;
-    tinType: boolean;
     numbered: string; // e.g. "01/50"
-    parallel: string; // e.g. "Purple Scope"
+    parallel: string; // e.g. "Tin Type", "Purple Foil"
   }>
 >;
-
-function padNumbered(a: string, b: string) {
-  const width = Math.max(2, b.length);
-  const left = String(parseInt(a, 10)).padStart(width, "0");
-  const right = String(parseInt(b, 10)).padStart(width, "0");
-  return `${left}/${right}`;
-}
-
-function inferFromFilename(filename: string) {
-  const base = filename.replace(/\.[^.]+$/, "");
-  const parts = base.split(/[-_]+/g).filter(Boolean);
-  const lower = base.toLowerCase();
-
-  // tags
-  const rc = /\brc\b|rookie/i.test(lower);
-  const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
-
-  // patch vs relic (relic includes patch/jersey/relic words)
-  const patch = /\bpatch\b/i.test(lower);
-  const relic = /\brelic\b|jersey/i.test(lower) || patch;
-
-  // tin type detection (supports: tin-type, tintype, tin)
-  const tinType = /\btin[-_ ]?type\b|\btintype\b|\btin\b/i.test(lower);
-
-  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower);
-
-  // numbered patterns: "02of05" or "2/50" etc -> normalized to "02/05" or "01/50"
-  let numbered: string | null = null;
-
-  // handles: 02of05, 2of50, 02 of 05, etc
-  const m1 = lower.match(/(\d+)\s*of\s*(\d+)/i);
-  // handles: 2/50, 02/05, 2 / 50, etc
-  const m2 = lower.match(/(\d+)\s*\/\s*(\d+)/);
-
-  if (m1) numbered = padNumbered(m1[1], m1[2]);
-  else if (m2) numbered = padNumbered(m2[1], m2[2]);
-
-  // crude player inference
-  const sportTokens = new Set(["baseball", "basketball", "football"]);
-  let sportIndex = -1;
-  for (let i = 0; i < parts.length; i++) {
-    if (sportTokens.has(parts[i].toLowerCase())) {
-      sportIndex = i;
-      break;
-    }
-  }
-
-  const stopWords = new Set([
-    "rc",
-    "rookie",
-    "auto",
-    "autograph",
-    "sig",
-    "signature",
-    "patch",
-    "relic",
-    "jersey",
-    "tin",
-    "tintype",
-    "tin",
-    "type",
-    "numbered",
-    "parallel",
-    "prizm",
-    "refractor",
-    "holo",
-    "foil",
-    "mosaic",
-    "scope",
-    "wave",
-    "front",
-    "back",
-  ]);
-
-  const isYear = (t: string) => /^\d{4}$/.test(t);
-
-  const candidate = sportIndex >= 0 ? parts.slice(sportIndex + 1) : parts.slice();
-  const nameParts: string[] = [];
-  for (const t of candidate) {
-    const tl = t.toLowerCase();
-    if (isYear(tl)) break;
-    if (stopWords.has(tl)) break;
-    if (/^\d+of\d+$/i.test(t) || /^\d+\/\d+$/.test(t)) break;
-    if (tl.startsWith("numbered")) break;
-    nameParts.push(t);
-  }
-
-  const player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
-
-  return { player, rc, auto, patch, relic, tinType, numbered, parallel };
-}
 
 function isImageFile(f: string) {
   return /\.(webp|png|jpe?g|gif)$/i.test(f);
@@ -137,6 +45,158 @@ function toUrl(folder: string, set: string, sub: string | null, file: string) {
   return `/cards/${folder}/${set}${mid}/${file}`;
 }
 
+// Normalizes front/back/thumb matching
+function cardKey(file: string) {
+  return file
+    .replace(/\.[^.]+$/, "") // drop extension
+    .replace(/__front$/i, "")
+    .replace(/__back$/i, "");
+}
+
+function formatNumbered(n: string | number, total: string | number) {
+  const nn = String(n);
+  const tt = String(total);
+  const w = Math.max(tt.length, 2); // at least 2 digits (01/50, 02/05, etc.)
+  const pad = (s: string) => s.padStart(w, "0");
+  return `${pad(nn)}/${pad(tt)}`;
+}
+
+function parseNumberedToken(token: string): string | null {
+  const t = token.toLowerCase();
+
+  // numbered-02of05, 02of05, 2of50, etc.
+  const m1 = t.match(/(\d+)\s*of\s*(\d+)/i);
+  if (m1) return formatNumbered(m1[1], m1[2]);
+
+  // 2/50, 02/50
+  const m2 = t.match(/(\d+)\s*\/\s*(\d+)/);
+  if (m2) return formatNumbered(m2[1], m2[2]);
+
+  return null;
+}
+
+/**
+ * Better inference for your new naming scheme:
+ * player__team__rc__numbered-01of50__parallel-tin-type__...__front.webp
+ *
+ * If filename doesn't contain "__", it falls back to the older heuristic.
+ */
+function inferFromFilename(filename: string) {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const lower = base.toLowerCase();
+
+  // default fields
+  let player = "";
+  let team = "";
+
+  let rc = false;
+  let auto = false;
+  let patch = false;
+  let relic = false;
+  let numbered: string | null = null;
+  let parallel = false;
+  let parallelText = "";
+
+  // Preferred: structured "__" parsing
+  if (base.includes("__")) {
+    const segs = base.split("__").filter(Boolean);
+
+    // player/team are first two segments if present
+    if (segs[0]) player = niceName(segs[0]);
+    if (segs[1]) team = niceName(segs[1]);
+
+    // Remaining segments become tags/attrs; ignore trailing "front"/"back"
+    const rest = segs.slice(2).map((s) => s.trim()).filter(Boolean);
+
+    for (const raw of rest) {
+      const t = raw.toLowerCase();
+
+      if (t === "front" || t === "back") continue;
+
+      if (t === "rc" || t === "rookie") rc = true;
+
+      if (t === "auto" || t === "autograph" || t === "signature" || t === "sig") auto = true;
+
+      if (t === "patch" || t === "jersey") patch = true;
+
+      if (t === "relic" || t === "relic-card") relic = true;
+
+      // numbered token variants
+      if (t.startsWith("numbered-")) {
+        const n = parseNumberedToken(t.replace(/^numbered-/, ""));
+        if (n) numbered = n;
+      } else {
+        const n = parseNumberedToken(t);
+        if (n) numbered = n;
+      }
+
+      // parallel token variants
+      if (t.startsWith("parallel-")) {
+        parallel = true;
+        const val = raw.slice("parallel-".length);
+        parallelText = niceName(val);
+      }
+
+      // "tin-type" may appear as its own token
+      if (t === "tin-type" || t === "tintype") {
+        parallel = true;
+        if (!parallelText) parallelText = "Tin Type";
+      }
+
+      // Some sets use foil/holo/etc without explicit "parallel-"
+      if (/(foil|holo|refractor|prizm|mosaic|scope|wave)/i.test(t)) {
+        parallel = true;
+        if (!parallelText && t !== "scope") parallelText = niceName(raw);
+      }
+    }
+
+    // If it says "patch" but not "relic", keep patch only (no forced relic)
+    // If you want patch to count as relic for filtering, uncomment:
+    // if (patch) relic = true;
+
+    // Fallback player if empty
+    if (!player) player = niceName(base);
+  } else {
+    // Fallback: old heuristic for older filenames
+    const parts = base.split(/[-_]+/g).filter(Boolean);
+
+    rc = /\brc\b|rookie/i.test(lower);
+    auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
+    patch = /\bpatch\b|relic|jersey/i.test(lower);
+    relic = /\brelic\b/i.test(lower);
+
+    const m1 = lower.match(/(\d+)\s*of\s*(\d+)/i);
+    const m2 = lower.match(/(\d+)\s*\/\s*(\d+)/);
+    if (m1) numbered = formatNumbered(m1[1], m1[2]);
+    if (m2) numbered = formatNumbered(m2[1], m2[2]);
+
+    parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin-type|tintype/i.test(lower);
+    if (/(tin-type|tintype)/i.test(lower)) parallelText = "Tin Type";
+
+    // crude player inference
+    const stopWords = new Set([
+      "rc","rookie","auto","autograph","sig","signature","patch","relic","jersey",
+      "numbered","parallel","prizm","refractor","holo","foil","mosaic","scope","wave","tin","type","tintype",
+    ]);
+
+    const isYear = (t: string) => /^\d{4}$/.test(t);
+    const nameParts: string[] = [];
+
+    for (const t of parts) {
+      const tl = t.toLowerCase();
+      if (isYear(tl)) break;
+      if (stopWords.has(tl)) break;
+      if (/^\d+of\d+$/i.test(t) || /^\d+\/\d+$/.test(t)) break;
+      nameParts.push(t);
+    }
+
+    player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
+    team = "";
+  }
+
+  return { player, team, rc, auto, patch, relic, numbered, parallel, parallelText };
+}
+
 export async function getStaticPaths() {
   const baseDir = path.join(process.cwd(), "public", "cards");
   const sports = ["baseball", "basketball", "football"];
@@ -145,9 +205,7 @@ export async function getStaticPaths() {
   // Case-safe sport folder detection (Linux-friendly on Cloudflare)
   const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
   const sportFolder = (sport: string) =>
-    baseEntries.find((e) => e.isDirectory() && e.name === sport)?.name ??
-    baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ??
-    sport;
+    baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
 
   for (const sport of sports) {
     const folder = sportFolder(sport);
@@ -167,20 +225,20 @@ const set = (Astro.params.set ?? "").toString();
 const baseDir = path.join(process.cwd(), "public", "cards");
 const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
 const folder =
-  baseEntries.find((e) => e.isDirectory() && e.name === sport)?.name ??
-  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ??
-  sport;
+  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
 
 const setDir = path.join(baseDir, folder, set);
 
 // Prefer these subfolders if present
 const frontWebpDir = path.join(setDir, "front-webp");
+const backWebpDir = path.join(setDir, "back-webp");
 const thumbsDir = path.join(setDir, "thumbs");
 
 const hasFrontWebp = await dirExists(frontWebpDir);
+const hasBackWebp = await dirExists(backWebpDir);
 const hasThumbs = await dirExists(thumbsDir);
 
-// Full-size source directory (lightbox)
+// Full-size source directory (lightbox) — fronts
 const fullDir = hasFrontWebp ? frontWebpDir : setDir;
 const fullSub = hasFrontWebp ? "front-webp" : null;
 
@@ -188,19 +246,27 @@ const fullSub = hasFrontWebp ? "front-webp" : null;
 const thumbDir = hasThumbs ? thumbsDir : fullDir;
 const thumbSub = hasThumbs ? "thumbs" : fullSub;
 
-// Read full images
-const fullFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
-fullFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+// Read fronts
+const frontFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
+frontFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-// Read thumbs (optional)
+// Read thumbs
 const thumbFiles = (await fs.readdir(thumbDir).catch(() => [])).filter(isImageFile);
 thumbFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-// map thumbs by basename so thumbs can match full images
-const thumbByBase = new Map<string, string>();
-for (const f of thumbFiles) {
-  thumbByBase.set(f.replace(/\.[^.]+$/, ""), f);
-}
+// Map thumbs by normalized key (handles __front mismatch, etc.)
+const thumbByKey = new Map<string, string>();
+for (const f of thumbFiles) thumbByKey.set(cardKey(f), f);
+
+// Read backs (optional)
+const backFiles = hasBackWebp
+  ? (await fs.readdir(backWebpDir).catch(() => [])).filter(isImageFile)
+  : [];
+backFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+// Map backs by normalized key
+const backByKey = new Map<string, string>();
+for (const f of backFiles) backByKey.set(cardKey(f), f);
 
 // optional meta.json at set root
 let meta: MetaMap = {};
@@ -212,25 +278,22 @@ try {
   // no meta.json, that's fine
 }
 
-// Build cards list based on fullFiles (fronts)
-const cards = fullFiles.map((img) => {
-  const inferred = inferFromFilename(img);
-  const m = meta[img] ?? {};
+// Build cards list based on fronts
+const cards = frontFiles.map((frontImg) => {
+  const inferred = inferFromFilename(frontImg);
+  const m = meta[frontImg] ?? {};
 
   const player = (m.player ?? inferred.player).toString();
-  const team = (m.team ?? "").toString();
+  const team = (m.team ?? inferred.team ?? "").toString();
 
   const rc = Boolean(m.rc ?? inferred.rc);
   const auto = Boolean(m.auto ?? inferred.auto);
-
   const patch = Boolean(m.patch ?? inferred.patch);
   const relic = Boolean(m.relic ?? inferred.relic);
-
-  const tinType = Boolean(m.tinType ?? inferred.tinType);
-
   const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
 
-  const parallelText = (m.parallel ?? "").toString();
+  // parallel label priority: meta > inferred parallelText > inferred parallel boolean
+  const parallelText = (m.parallel ?? inferred.parallelText ?? "").toString();
   const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
@@ -238,30 +301,28 @@ const cards = fullFiles.map((img) => {
     auto ? "auto" : "",
     patch ? "patch" : "",
     relic ? "relic" : "",
-    tinType ? "tin" : "",
     numbered ? "numbered" : "",
     parallel ? "parallel" : "",
   ].filter(Boolean);
 
-  const base = img.replace(/\.[^.]+$/, "");
-  const thumbName = thumbByBase.get(base);
+  const key = cardKey(frontImg);
+  const thumbName = thumbByKey.get(key) ?? frontImg;
 
-  // ✅ If thumb exists -> use it. If not -> fall back to full image URL (prevents blank tiles)
-  const urlThumb = thumbName
-    ? toUrl(folder, set, thumbSub, thumbName)
-    : toUrl(folder, set, fullSub, img);
+  const backImg = hasBackWebp ? (backByKey.get(key) ?? null) : null;
 
   return {
-    img,
-    urlFull: toUrl(folder, set, fullSub, img),
-    urlThumb,
+    img: frontImg,
+    urlFront: toUrl(folder, set, fullSub, frontImg),
+    urlThumb: toUrl(folder, set, thumbSub, thumbName),
+    urlBack: backImg ? toUrl(folder, set, "back-webp", backImg) : null,
+    hasBack: Boolean(backImg),
+
     player,
     team,
     rc,
     auto,
     patch,
     relic,
-    tinType,
     numbered,
     parallel,
     parallelText,
@@ -305,6 +366,16 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
         <p class="mt-2 text-zinc-300">
           {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
         </p>
+
+        <p class="mt-2 text-xs text-zinc-500">
+          Grid: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{thumbSub ?? "(set root)"}</code>
+          &nbsp;•&nbsp; Lightbox: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{fullSub ?? "(set root)"}</code>
+          {hasBackWebp ? (
+            <>
+              &nbsp;•&nbsp; Back: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">back-webp</code>
+            </>
+          ) : null}
+        </p>
       </div>
 
       <!-- Search + quick filters -->
@@ -313,7 +384,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <input
             id="q"
             type="search"
-            placeholder="Search player / filename…"
+            placeholder="Search player / team / filename…"
             class="w-full rounded-xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600"
           />
         </div>
@@ -324,7 +395,6 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <button class="chip" type="button" data-filter="auto">Auto</button>
           <button class="chip" type="button" data-filter="patch">Patch</button>
           <button class="chip" type="button" data-filter="relic">Relic</button>
-          <button class="chip" type="button" data-filter="tin">Tin Type</button>
           <button class="chip" type="button" data-filter="numbered">#’d</button>
           <button class="chip" type="button" data-filter="parallel">Parallel</button>
         </div>
@@ -341,6 +411,14 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
               public/cards/{folder}/{set}/thumbs/
             </code>
+            {hasBackWebp ? (
+              <>
+                {" "}and backs in{" "}
+                <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+                  public/cards/{folder}/{set}/back-webp/
+                </code>
+              </>
+            ) : null}
           </div>
         </div>
       ) : (
@@ -368,15 +446,16 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
                 <div class="px-2 py-2">
                   <div class="text-xs font-medium text-zinc-200 truncate">{c.player}</div>
+                  {c.team ? <div class="mt-0.5 text-[10px] text-zinc-400 truncate">{c.team}</div> : null}
 
                   <div class="mt-1 flex flex-wrap gap-1">
                     {c.rc && <span class="pill">RC</span>}
                     {c.auto && <span class="pill">AUTO</span>}
                     {c.patch && <span class="pill">PATCH</span>}
-                    {c.relic && <span class="pill">RELIC</span>}
-                    {c.tinType && <span class="pill">Tin Type</span>}
-                    {c.numbered && <span class="pill">{c.numbered}</span>}
+                    {!c.patch && c.relic && <span class="pill">RELIC</span>}
+                    {c.numbered && <span class="pill">#{c.numbered}</span>}
                     {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
+                    {c.hasBack && <span class="pill">2-SIDED</span>}
                   </div>
                 </div>
               </button>
@@ -408,7 +487,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
                 </div>
 
-                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
+                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800 gap-2">
                   <button
                     type="button"
                     class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
@@ -416,7 +495,18 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   >
                     ← Prev
                   </button>
-                  <div class="text-xs text-zinc-400" id="lb-count"></div>
+
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500 disabled:opacity-40 disabled:cursor-not-allowed"
+                      id="lb-flip"
+                    >
+                      View Back
+                    </button>
+                    <div class="text-xs text-zinc-400" id="lb-count"></div>
+                  </div>
+
                   <button
                     type="button"
                     class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
@@ -457,17 +547,15 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             }
           </style>
 
-          {/* Inline script (search/filter + lightbox) */}
+          {/* Inline script (search/filter + lightbox + flip) */}
           <script define:vars={{ cards }}>
-            const urls = cards.map((c) => c.urlFull);
-            const labels = cards.map((c) => c.img);
-
             const lb = document.getElementById("lightbox");
             const lbImg = document.getElementById("lb-img");
             const lbLabel = document.getElementById("lb-label");
             const lbCount = document.getElementById("lb-count");
             const prevBtn = document.getElementById("lb-prev");
             const nextBtn = document.getElementById("lb-next");
+            const flipBtn = document.getElementById("lb-flip");
 
             const q = document.getElementById("q");
             const grid = document.getElementById("grid");
@@ -475,13 +563,36 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
             let idx = 0;
             let active = "all";
+            let side = "front"; // "front" | "back"
+
+            function setLightboxText() {
+              const c = cards[idx];
+              const sideLabel = (side === "back") ? "Back" : "Front";
+              const team = c.team ? ` • ${c.team}` : "";
+              lbLabel.textContent = `${c.player}${team} • ${sideLabel}`;
+              lbCount.textContent = `${idx + 1} / ${cards.length}`;
+            }
+
+            function render() {
+              const c = cards[idx];
+              const hasBack = Boolean(c.urlBack);
+              const url = (side === "back" && hasBack) ? c.urlBack : c.urlFront;
+
+              lbImg.src = url;
+              lbImg.alt = c.img;
+
+              if (flipBtn) {
+                flipBtn.disabled = !hasBack;
+                flipBtn.textContent = !hasBack ? "No Back" : (side === "front" ? "View Back" : "View Front");
+              }
+
+              setLightboxText();
+            }
 
             function show(i) {
-              idx = (i + urls.length) % urls.length;
-              lbImg.src = urls[idx];
-              lbImg.alt = labels[idx];
-              lbLabel.textContent = labels[idx];
-              lbCount.textContent = `${idx + 1} / ${urls.length}`;
+              idx = (i + cards.length) % cards.length;
+              side = "front";
+              render();
               lb.classList.remove("hidden");
               lb.classList.add("flex");
               lb.setAttribute("aria-hidden", "false");
@@ -492,6 +603,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               lb.classList.remove("flex");
               lb.setAttribute("aria-hidden", "true");
               lbImg.src = "";
+              side = "front";
             }
 
             function applyFilter() {
@@ -518,6 +630,13 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             prevBtn.addEventListener("click", () => show(idx - 1));
             nextBtn.addEventListener("click", () => show(idx + 1));
 
+            flipBtn?.addEventListener("click", () => {
+              const c = cards[idx];
+              if (!c.urlBack) return;
+              side = (side === "front") ? "back" : "front";
+              render();
+            });
+
             q?.addEventListener("input", applyFilter);
 
             chips.forEach((btn) => {
@@ -531,9 +650,18 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
             window.addEventListener("keydown", (e) => {
               if (!lb || lb.classList.contains("hidden")) return;
+
               if (e.key === "Escape") close();
               if (e.key === "ArrowLeft") show(idx - 1);
               if (e.key === "ArrowRight") show(idx + 1);
+
+              // Flip hotkey: "b"
+              if (e.key.toLowerCase() === "b") {
+                const c = cards[idx];
+                if (!c.urlBack) return;
+                side = (side === "front") ? "back" : "front";
+                render();
+              }
             });
           </script>
         </>

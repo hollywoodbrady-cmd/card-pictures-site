@@ -28,10 +28,11 @@ type MetaMap = Record<
   }>
 >;
 
-function formatNumbered(n: string, t: string) {
-  // pad to at least 2 chars, or match total width (handles 02of05 nicely)
-  const w = Math.max(2, t.length);
-  return `${n.padStart(w, "0")}/${t.padStart(w, "0")}`;
+function padNumbered(a: string, b: string) {
+  const width = Math.max(2, b.length);
+  const left = String(parseInt(a, 10)).padStart(width, "0");
+  const right = String(parseInt(b, 10)).padStart(width, "0");
+  return `${left}/${right}`;
 }
 
 function inferFromFilename(filename: string) {
@@ -39,35 +40,29 @@ function inferFromFilename(filename: string) {
   const parts = base.split(/[-_]+/g).filter(Boolean);
   const lower = base.toLowerCase();
 
-  // ✅ FIX: token-aware rc detection (works with __rc__)
-  const rc =
-    /(^|[-_])rc($|[-_])/i.test(lower) ||
-    /rookie/i.test(lower);
-
+  // tags
+  const rc = /\brc\b|rookie/i.test(lower);
   const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
 
-  // split relic vs patch
-  const relic = /\brelic\b/i.test(lower);
-  const patch = /\bpatch\b|jersey|swatch/i.test(lower);
+  // patch vs relic (relic includes patch/jersey/relic words)
+  const patch = /\bpatch\b/i.test(lower);
+  const relic = /\brelic\b|jersey/i.test(lower) || patch;
 
-  // parallel-ish
-  const parallel =
-    /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower) ||
-    /parallel-/.test(lower);
+  // tin type detection (supports: tin-type, tintype, tin)
+  const tinType = /\btin[-_ ]?type\b|\btintype\b|\btin\b/i.test(lower);
 
-  // Tin Type
-  const tinType = /tin[-_ ]?type|tintype/i.test(lower);
+  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave/i.test(lower);
 
-  // numbered patterns:
-  // numbered-02of05, 02of05, 02/05
+  // numbered patterns: "02of05" or "2/50" etc -> normalized to "02/05" or "01/50"
   let numbered: string | null = null;
-  const mA = lower.match(/numbered[-_]?(\d+)of(\d+)/i);
-  const mB = lower.match(/(^|[-_])(\d+)of(\d+)($|[-_])/i);
-  const mC = lower.match(/(\d+)\s*\/\s*(\d+)/);
 
-  if (mA) numbered = formatNumbered(mA[1], mA[2]);
-  else if (mB) numbered = formatNumbered(mB[2], mB[3]);
-  else if (mC) numbered = formatNumbered(mC[1], mC[2]);
+  // handles: 02of05, 2of50, 02 of 05, etc
+  const m1 = lower.match(/(\d+)\s*of\s*(\d+)/i);
+  // handles: 2/50, 02/05, 2 / 50, etc
+  const m2 = lower.match(/(\d+)\s*\/\s*(\d+)/);
+
+  if (m1) numbered = padNumbered(m1[1], m1[2]);
+  else if (m2) numbered = padNumbered(m2[1], m2[2]);
 
   // crude player inference
   const sportTokens = new Set(["baseball", "basketball", "football"]);
@@ -80,13 +75,30 @@ function inferFromFilename(filename: string) {
   }
 
   const stopWords = new Set([
-    "rc","rookie",
-    "auto","autograph","sig","signature",
-    "patch","jersey","swatch",
+    "rc",
+    "rookie",
+    "auto",
+    "autograph",
+    "sig",
+    "signature",
+    "patch",
     "relic",
+    "jersey",
+    "tin",
+    "tintype",
+    "tin",
+    "type",
     "numbered",
-    "parallel","prizm","refractor","holo","foil","mosaic","scope","wave",
-    "tin","type","tintype","tin-type",
+    "parallel",
+    "prizm",
+    "refractor",
+    "holo",
+    "foil",
+    "mosaic",
+    "scope",
+    "wave",
+    "front",
+    "back",
   ]);
 
   const isYear = (t: string) => /^\d{4}$/.test(t);
@@ -98,7 +110,7 @@ function inferFromFilename(filename: string) {
     if (isYear(tl)) break;
     if (stopWords.has(tl)) break;
     if (/^\d+of\d+$/i.test(t) || /^\d+\/\d+$/.test(t)) break;
-    if (/^numbered$/i.test(t)) break;
+    if (tl.startsWith("numbered")) break;
     nameParts.push(t);
   }
 
@@ -133,7 +145,9 @@ export async function getStaticPaths() {
   // Case-safe sport folder detection (Linux-friendly on Cloudflare)
   const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
   const sportFolder = (sport: string) =>
-    baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
+    baseEntries.find((e) => e.isDirectory() && e.name === sport)?.name ??
+    baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ??
+    sport;
 
   for (const sport of sports) {
     const folder = sportFolder(sport);
@@ -153,7 +167,9 @@ const set = (Astro.params.set ?? "").toString();
 const baseDir = path.join(process.cwd(), "public", "cards");
 const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
 const folder =
-  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
+  baseEntries.find((e) => e.isDirectory() && e.name === sport)?.name ??
+  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ??
+  sport;
 
 const setDir = path.join(baseDir, folder, set);
 
@@ -206,11 +222,14 @@ const cards = fullFiles.map((img) => {
 
   const rc = Boolean(m.rc ?? inferred.rc);
   const auto = Boolean(m.auto ?? inferred.auto);
+
   const patch = Boolean(m.patch ?? inferred.patch);
   const relic = Boolean(m.relic ?? inferred.relic);
+
   const tinType = Boolean(m.tinType ?? inferred.tinType);
 
   const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
+
   const parallelText = (m.parallel ?? "").toString();
   const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
@@ -219,20 +238,23 @@ const cards = fullFiles.map((img) => {
     auto ? "auto" : "",
     patch ? "patch" : "",
     relic ? "relic" : "",
-    tinType ? "tin-type" : "",
+    tinType ? "tin" : "",
     numbered ? "numbered" : "",
     parallel ? "parallel" : "",
   ].filter(Boolean);
 
   const base = img.replace(/\.[^.]+$/, "");
-  const thumbName = thumbByBase.get(base) ?? img;
+  const thumbName = thumbByBase.get(base);
+
+  // ✅ If thumb exists -> use it. If not -> fall back to full image URL (prevents blank tiles)
+  const urlThumb = thumbName
+    ? toUrl(folder, set, thumbSub, thumbName)
+    : toUrl(folder, set, fullSub, img);
 
   return {
     img,
     urlFull: toUrl(folder, set, fullSub, img),
-    urlThumb: thumbName
-    ? toUrl(folder, set, thumbSub, thumbName)
-    : toUrl(folder, set, fullSub, img), // fallback to full image if no thumb exists,
+    urlThumb,
     player,
     team,
     rc,
@@ -302,15 +324,24 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <button class="chip" type="button" data-filter="auto">Auto</button>
           <button class="chip" type="button" data-filter="patch">Patch</button>
           <button class="chip" type="button" data-filter="relic">Relic</button>
+          <button class="chip" type="button" data-filter="tin">Tin Type</button>
           <button class="chip" type="button" data-filter="numbered">#’d</button>
           <button class="chip" type="button" data-filter="parallel">Parallel</button>
-          <button class="chip" type="button" data-filter="tin-type">Tin Type</button>
         </div>
       </div>
 
       {cards.length === 0 ? (
         <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
-          No images found.
+          No images found. Put card images in:
+          <div class="mt-2 text-sm text-zinc-400">
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{folder}/{set}/front-webp/
+            </code>
+            {" "}and thumbs in{" "}
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{folder}/{set}/thumbs/
+            </code>
+          </div>
         </div>
       ) : (
         <>
@@ -343,8 +374,8 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                     {c.auto && <span class="pill">AUTO</span>}
                     {c.patch && <span class="pill">PATCH</span>}
                     {c.relic && <span class="pill">RELIC</span>}
-                    {c.tinType && <span class="pill">TIN</span>}
-                    {c.numbered && <span class="pill">#{c.numbered}</span>}
+                    {c.tinType && <span class="pill">Tin Type</span>}
+                    {c.numbered && <span class="pill">{c.numbered}</span>}
                     {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
                   </div>
                 </div>

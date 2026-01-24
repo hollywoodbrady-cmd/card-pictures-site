@@ -500,7 +500,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <script define:vars={{ cards }}>
             const fronts = cards.map((c) => c.urlFront);
             const backs  = cards.map((c) => c.urlBack); // null if none
-            const labels = cards.map((c) => c.img);
+            const labels = cards.map((c) => "");
 
             const lb = document.getElementById("lightbox");
             const lbImg = document.getElementById("lb-img");

@@ -344,16 +344,6 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
         <p class="mt-2 text-zinc-300">
           {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
         </p>
-
-        <p class="mt-2 text-xs text-zinc-500">
-          Grid: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{thumbSub ?? "(set root)"}</code>
-          &nbsp;•&nbsp; Lightbox: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">{fullSub ?? "(set root)"}</code>
-          {hasBackWebp ? (
-            <>
-              &nbsp;•&nbsp; Back: <code class="rounded bg-zinc-900 px-1.5 py-0.5 ring-1 ring-zinc-800">back-webp</code>
-            </>
-          ) : null}
-        </p>
       </div>
 
       <!-- Search + quick filters -->

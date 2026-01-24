@@ -23,7 +23,7 @@ type MetaMap = Record<
     patch: boolean;
     relic: boolean;
     numbered: string; // e.g. "01/50"
-    parallel: string; // e.g. "Tin Type", "Purple Foil"
+    parallel: string; // e.g. "Tin Type", "Purple Scope"
   }>
 >;
 
@@ -45,156 +45,107 @@ function toUrl(folder: string, set: string, sub: string | null, file: string) {
   return `/cards/${folder}/${set}${mid}/${file}`;
 }
 
-// Normalizes front/back/thumb matching
+// Key used to pair front/back.
+// Strips extension + trailing __front/__back if present.
 function cardKey(file: string) {
   return file
-    .replace(/\.[^.]+$/, "") // drop extension
+    .replace(/\.[^.]+$/, "")
     .replace(/__front$/i, "")
     .replace(/__back$/i, "");
 }
 
-function formatNumbered(n: string | number, total: string | number) {
-  const nn = String(n);
-  const tt = String(total);
-  const w = Math.max(tt.length, 2); // at least 2 digits (01/50, 02/05, etc.)
-  const pad = (s: string) => s.padStart(w, "0");
-  return `${pad(nn)}/${pad(tt)}`;
+// Normalize "02of05" => "02/05" and pad like "01/50"
+function normalizeNumbered(raw: string) {
+  const s = (raw ?? "").toString().trim();
+  if (!s) return "";
+
+  // allow "2/50", "02/50"
+  const slash = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (slash) {
+    const a = slash[1];
+    const b = slash[2];
+    const width = Math.max(2, b.length);
+    return `${a.padStart(width, "0")}/${b.padStart(width, "0")}`;
+  }
+
+  // allow "02of50", "2of50"
+  const of = s.match(/^(\d+)\s*of\s*(\d+)$/i);
+  if (of) {
+    const a = of[1];
+    const b = of[2];
+    const width = Math.max(2, b.length);
+    return `${a.padStart(width, "0")}/${b.padStart(width, "0")}`;
+  }
+
+  return s;
 }
 
-function parseNumberedToken(token: string): string | null {
-  const t = token.toLowerCase();
-
-  // numbered-02of05, 02of05, 2of50, etc.
-  const m1 = t.match(/(\d+)\s*of\s*(\d+)/i);
-  if (m1) return formatNumbered(m1[1], m1[2]);
-
-  // 2/50, 02/50
-  const m2 = t.match(/(\d+)\s*\/\s*(\d+)/);
-  if (m2) return formatNumbered(m2[1], m2[2]);
-
-  return null;
-}
-
-/**
- * Better inference for your new naming scheme:
- * player__team__rc__numbered-01of50__parallel-tin-type__...__front.webp
- *
- * If filename doesn't contain "__", it falls back to the older heuristic.
- */
 function inferFromFilename(filename: string) {
   const base = filename.replace(/\.[^.]+$/, "");
   const lower = base.toLowerCase();
 
-  // default fields
+  // Detect tags anywhere
+  const rc = /\brc\b|rookie/i.test(lower);
+  const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
+  const patch = /\bpatch\b|jersey/i.test(lower);
+  const relic = /\brelic\b/i.test(lower);
+  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin[-\s]?type/i.test(lower);
+
+  // Numbered patterns in your filenames:
+  // numbered-02of05, numbered_02of05, 02of05, 02/05
+  let numbered: string | null = null;
+  const mNumbered1 = lower.match(/numbered[-_]?(\d+)\s*of\s*(\d+)/i);
+  const mNumbered2 = lower.match(/numbered[-_]?(\d+)\s*\/\s*(\d+)/i);
+  const mNumbered3 = lower.match(/\b(\d+)\s*of\s*(\d+)\b/i);
+  const mNumbered4 = lower.match(/\b(\d+)\s*\/\s*(\d+)\b/i);
+
+  const pick = (m: RegExpMatchArray | null) => (m ? normalizeNumbered(`${m[1]}/${m[2]}`) : null);
+
+  numbered =
+    pick(mNumbered1) ??
+    pick(mNumbered2) ??
+    pick(mNumbered3) ??
+    pick(mNumbered4);
+
+  // Smarter player/team inference for your "__" naming scheme
+  // examples:
+  // jayson-tatum__boston-celtics__base
+  // sam-aldegueri__los-angeles-angels__rc__numbered-01of10__allen-ginter__front
   let player = "";
   let team = "";
 
-  let rc = false;
-  let auto = false;
-  let patch = false;
-  let relic = false;
-  let numbered: string | null = null;
-  let parallel = false;
-  let parallelText = "";
-
-  // Preferred: structured "__" parsing
   if (base.includes("__")) {
     const segs = base.split("__").filter(Boolean);
 
-    // player/team are first two segments if present
-    if (segs[0]) player = niceName(segs[0]);
-    if (segs[1]) team = niceName(segs[1]);
+    // player is usually first segment
+    player = niceName(segs[0] ?? base);
 
-    // Remaining segments become tags/attrs; ignore trailing "front"/"back"
-    const rest = segs.slice(2).map((s) => s.trim()).filter(Boolean);
+    // team is usually second segment (if it looks like a team and not a tag)
+    const tagLike = (s: string) =>
+      /^(rc|rookie|base|auto|patch|relic|insert|numbered|parallel|foil|holo|mosaic|scope|wave|tin[-\s]?type)(-|$)/i.test(s);
 
-    for (const raw of rest) {
-      const t = raw.toLowerCase();
-
-      if (t === "front" || t === "back") continue;
-
-      if (t === "rc" || t === "rookie") rc = true;
-
-      if (t === "auto" || t === "autograph" || t === "signature" || t === "sig") auto = true;
-
-      if (t === "patch" || t === "jersey") patch = true;
-
-      if (t === "relic" || t === "relic-card") relic = true;
-
-      // numbered token variants
-      if (t.startsWith("numbered-")) {
-        const n = parseNumberedToken(t.replace(/^numbered-/, ""));
-        if (n) numbered = n;
-      } else {
-        const n = parseNumberedToken(t);
-        if (n) numbered = n;
-      }
-
-      // parallel token variants
-      if (t.startsWith("parallel-")) {
-        parallel = true;
-        const val = raw.slice("parallel-".length);
-        parallelText = niceName(val);
-      }
-
-      // "tin-type" may appear as its own token
-      if (t === "tin-type" || t === "tintype") {
-        parallel = true;
-        if (!parallelText) parallelText = "Tin Type";
-      }
-
-      // Some sets use foil/holo/etc without explicit "parallel-"
-      if (/(foil|holo|refractor|prizm|mosaic|scope|wave)/i.test(t)) {
-        parallel = true;
-        if (!parallelText && t !== "scope") parallelText = niceName(raw);
-      }
+    if (segs.length >= 2 && !tagLike(segs[1])) {
+      team = niceName(segs[1]);
+    } else {
+      team = "";
     }
-
-    // If it says "patch" but not "relic", keep patch only (no forced relic)
-    // If you want patch to count as relic for filtering, uncomment:
-    // if (patch) relic = true;
-
-    // Fallback player if empty
-    if (!player) player = niceName(base);
   } else {
-    // Fallback: old heuristic for older filenames
+    // fallback
     const parts = base.split(/[-_]+/g).filter(Boolean);
-
-    rc = /\brc\b|rookie/i.test(lower);
-    auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
-    patch = /\bpatch\b|relic|jersey/i.test(lower);
-    relic = /\brelic\b/i.test(lower);
-
-    const m1 = lower.match(/(\d+)\s*of\s*(\d+)/i);
-    const m2 = lower.match(/(\d+)\s*\/\s*(\d+)/);
-    if (m1) numbered = formatNumbered(m1[1], m1[2]);
-    if (m2) numbered = formatNumbered(m2[1], m2[2]);
-
-    parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin-type|tintype/i.test(lower);
-    if (/(tin-type|tintype)/i.test(lower)) parallelText = "Tin Type";
-
-    // crude player inference
-    const stopWords = new Set([
-      "rc","rookie","auto","autograph","sig","signature","patch","relic","jersey",
-      "numbered","parallel","prizm","refractor","holo","foil","mosaic","scope","wave","tin","type","tintype",
-    ]);
-
-    const isYear = (t: string) => /^\d{4}$/.test(t);
-    const nameParts: string[] = [];
-
-    for (const t of parts) {
-      const tl = t.toLowerCase();
-      if (isYear(tl)) break;
-      if (stopWords.has(tl)) break;
-      if (/^\d+of\d+$/i.test(t) || /^\d+\/\d+$/.test(t)) break;
-      nameParts.push(t);
-    }
-
-    player = nameParts.length > 0 ? niceName(nameParts.join(" ")) : niceName(base);
+    player = parts.length ? niceName(parts.slice(0, 2).join(" ")) : niceName(base);
     team = "";
   }
 
-  return { player, team, rc, auto, patch, relic, numbered, parallel, parallelText };
+  return {
+    player,
+    team,
+    rc,
+    auto,
+    patch,
+    relic,
+    numbered,
+    parallel,
+  };
 }
 
 export async function getStaticPaths() {
@@ -238,7 +189,7 @@ const hasFrontWebp = await dirExists(frontWebpDir);
 const hasBackWebp = await dirExists(backWebpDir);
 const hasThumbs = await dirExists(thumbsDir);
 
-// Full-size source directory (lightbox) — fronts
+// Full-size source directory (lightbox)
 const fullDir = hasFrontWebp ? frontWebpDir : setDir;
 const fullSub = hasFrontWebp ? "front-webp" : null;
 
@@ -247,26 +198,25 @@ const thumbDir = hasThumbs ? thumbsDir : fullDir;
 const thumbSub = hasThumbs ? "thumbs" : fullSub;
 
 // Read fronts
-const frontFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
-frontFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+const fullFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
+fullFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-// Read thumbs
+// Read thumbs (optional)
 const thumbFiles = (await fs.readdir(thumbDir).catch(() => [])).filter(isImageFile);
 thumbFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
 
-// Map thumbs by normalized key (handles __front mismatch, etc.)
-const thumbByKey = new Map<string, string>();
-for (const f of thumbFiles) thumbByKey.set(cardKey(f), f);
+// Map thumbs by basename so thumbs can match fronts even if resized
+const thumbByBase = new Map<string, string>();
+for (const f of thumbFiles) {
+  thumbByBase.set(f.replace(/\.[^.]+$/, ""), f);
+}
 
-// Read backs (optional)
-const backFiles = hasBackWebp
-  ? (await fs.readdir(backWebpDir).catch(() => [])).filter(isImageFile)
-  : [];
-backFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
-
-// Map backs by normalized key
+// Read backs (optional) and map to front keys
 const backByKey = new Map<string, string>();
-for (const f of backFiles) backByKey.set(cardKey(f), f);
+if (hasBackWebp) {
+  const backFiles = (await fs.readdir(backWebpDir).catch(() => [])).filter(isImageFile);
+  for (const f of backFiles) backByKey.set(cardKey(f), f);
+}
 
 // optional meta.json at set root
 let meta: MetaMap = {};
@@ -278,8 +228,8 @@ try {
   // no meta.json, that's fine
 }
 
-// Build cards list based on fronts
-const cards = frontFiles.map((frontImg) => {
+// Build cards list based on front files
+const cards = fullFiles.map((frontImg) => {
   const inferred = inferFromFilename(frontImg);
   const m = meta[frontImg] ?? {};
 
@@ -290,10 +240,11 @@ const cards = frontFiles.map((frontImg) => {
   const auto = Boolean(m.auto ?? inferred.auto);
   const patch = Boolean(m.patch ?? inferred.patch);
   const relic = Boolean(m.relic ?? inferred.relic);
-  const numbered = (m.numbered ?? inferred.numbered ?? "").toString();
 
-  // parallel label priority: meta > inferred parallelText > inferred parallel boolean
-  const parallelText = (m.parallel ?? inferred.parallelText ?? "").toString();
+  const numberedRaw = (m.numbered ?? inferred.numbered ?? "").toString();
+  const numbered = normalizeNumbered(numberedRaw);
+
+  const parallelText = (m.parallel ?? "").toString(); // optional label like "Tin Type"
   const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
@@ -305,17 +256,21 @@ const cards = frontFiles.map((frontImg) => {
     parallel ? "parallel" : "",
   ].filter(Boolean);
 
+  // Pair back by key (front name normalized)
   const key = cardKey(frontImg);
-  const thumbName = thumbByKey.get(key) ?? frontImg;
-
   const backImg = hasBackWebp ? (backByKey.get(key) ?? null) : null;
+
+  // thumb match by basename
+  const base = frontImg.replace(/\.[^.]+$/, "");
+  const thumbName = thumbByBase.get(base) ?? frontImg;
 
   return {
     img: frontImg,
     urlFront: toUrl(folder, set, fullSub, frontImg),
-    urlThumb: toUrl(folder, set, thumbSub, thumbName),
     urlBack: backImg ? toUrl(folder, set, "back-webp", backImg) : null,
     hasBack: Boolean(backImg),
+
+    urlThumb: toUrl(folder, set, thumbSub, thumbName),
 
     player,
     team,
@@ -411,14 +366,10 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
               public/cards/{folder}/{set}/thumbs/
             </code>
-            {hasBackWebp ? (
-              <>
-                {" "}and backs in{" "}
-                <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-                  public/cards/{folder}/{set}/back-webp/
-                </code>
-              </>
-            ) : null}
+            {" "}and optional backs in{" "}
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{folder}/{set}/back-webp/
+            </code>
           </div>
         </div>
       ) : (
@@ -446,14 +397,14 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
 
                 <div class="px-2 py-2">
                   <div class="text-xs font-medium text-zinc-200 truncate">{c.player}</div>
-                  {c.team ? <div class="mt-0.5 text-[10px] text-zinc-400 truncate">{c.team}</div> : null}
+                  {c.team ? <div class="text-[10px] text-zinc-400 truncate">{c.team}</div> : null}
 
                   <div class="mt-1 flex flex-wrap gap-1">
                     {c.rc && <span class="pill">RC</span>}
                     {c.auto && <span class="pill">AUTO</span>}
                     {c.patch && <span class="pill">PATCH</span>}
-                    {!c.patch && c.relic && <span class="pill">RELIC</span>}
-                    {c.numbered && <span class="pill">#{c.numbered}</span>}
+                    {c.relic && <span class="pill">RELIC</span>}
+                    {c.numbered && <span class="pill">{c.numbered}</span>}
                     {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
                     {c.hasBack && <span class="pill">2-SIDED</span>}
                   </div>
@@ -487,7 +438,7 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
                 </div>
 
-                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800 gap-2">
+                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
                   <button
                     type="button"
                     class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
@@ -496,16 +447,15 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                     ← Prev
                   </button>
 
-                  <div class="flex items-center gap-2">
-                    <button
-                      type="button"
-                      class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                      id="lb-flip"
-                    >
-                      View Back
-                    </button>
-                    <div class="text-xs text-zinc-400" id="lb-count"></div>
-                  </div>
+                  <button
+                    type="button"
+                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
+                    id="lb-flip"
+                  >
+                    View Back
+                  </button>
+
+                  <div class="text-xs text-zinc-400" id="lb-count"></div>
 
                   <button
                     type="button"
@@ -547,8 +497,12 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             }
           </style>
 
-          {/* Inline script (search/filter + lightbox + flip) */}
+          {/* Inline script (search/filter + lightbox flip) */}
           <script define:vars={{ cards }}>
+            const fronts = cards.map((c) => c.urlFront);
+            const backs  = cards.map((c) => c.urlBack); // null if none
+            const labels = cards.map((c) => c.img);
+
             const lb = document.getElementById("lightbox");
             const lbImg = document.getElementById("lb-img");
             const lbLabel = document.getElementById("lb-label");
@@ -562,48 +516,44 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
             const chips = Array.from(document.querySelectorAll(".chip"));
 
             let idx = 0;
-            let active = "all";
             let side = "front"; // "front" | "back"
+            let active = "all";
 
-            function setLightboxText() {
-              const c = cards[idx];
-              const sideLabel = (side === "back") ? "Back" : "Front";
-              const team = c.team ? ` • ${c.team}` : "";
-              lbLabel.textContent = `${c.player}${team} • ${sideLabel}`;
-              lbCount.textContent = `${idx + 1} / ${cards.length}`;
-            }
-
-            function render() {
-              const c = cards[idx];
-              const hasBack = Boolean(c.urlBack);
-              const url = (side === "back" && hasBack) ? c.urlBack : c.urlFront;
+            function renderLightbox() {
+              const backUrl = backs[idx];
+              const showBack = side === "back" && backUrl;
+              const url = showBack ? backUrl : fronts[idx];
 
               lbImg.src = url;
-              lbImg.alt = c.img;
+              lbImg.alt = labels[idx];
+
+              const suffix = backUrl ? (showBack ? " • Back" : " • Front") : "";
+              lbLabel.textContent = labels[idx] + suffix;
+
+              lbCount.textContent = `${idx + 1} / ${fronts.length}`;
 
               if (flipBtn) {
+                const hasBack = !!backUrl;
                 flipBtn.disabled = !hasBack;
-                flipBtn.textContent = !hasBack ? "No Back" : (side === "front" ? "View Back" : "View Front");
+                flipBtn.style.opacity = hasBack ? "1" : "0.35";
+                flipBtn.textContent = hasBack ? (showBack ? "View Front" : "View Back") : "No Back";
               }
-
-              setLightboxText();
             }
 
-            function show(i) {
-              idx = (i + cards.length) % cards.length;
+            function openLightbox(i) {
+              idx = (i + fronts.length) % fronts.length;
               side = "front";
-              render();
+              renderLightbox();
               lb.classList.remove("hidden");
               lb.classList.add("flex");
               lb.setAttribute("aria-hidden", "false");
             }
 
-            function close() {
+            function closeLightbox() {
               lb.classList.add("hidden");
               lb.classList.remove("flex");
               lb.setAttribute("aria-hidden", "true");
               lbImg.src = "";
-              side = "front";
             }
 
             function applyFilter() {
@@ -621,24 +571,37 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               });
             }
 
+            // Tile open
             document.querySelectorAll("[data-open]").forEach((btn) => {
-              btn.addEventListener("click", () => show(parseInt(btn.dataset.open, 10)));
+              btn.addEventListener("click", () => openLightbox(parseInt(btn.dataset.open, 10)));
             });
 
-            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", close));
+            // Close click
+            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", closeLightbox));
 
-            prevBtn.addEventListener("click", () => show(idx - 1));
-            nextBtn.addEventListener("click", () => show(idx + 1));
+            // Prev/Next
+            prevBtn.addEventListener("click", () => {
+              idx = (idx - 1 + fronts.length) % fronts.length;
+              side = "front";
+              renderLightbox();
+            });
+            nextBtn.addEventListener("click", () => {
+              idx = (idx + 1) % fronts.length;
+              side = "front";
+              renderLightbox();
+            });
 
+            // Flip
             flipBtn?.addEventListener("click", () => {
-              const c = cards[idx];
-              if (!c.urlBack) return;
+              if (!backs[idx]) return;
               side = (side === "front") ? "back" : "front";
-              render();
+              renderLightbox();
             });
 
+            // Search
             q?.addEventListener("input", applyFilter);
 
+            // Chips
             chips.forEach((btn) => {
               btn.addEventListener("click", () => {
                 chips.forEach((b) => b.classList.remove("is-active"));
@@ -648,19 +611,24 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               });
             });
 
+            // Keyboard
             window.addEventListener("keydown", (e) => {
               if (!lb || lb.classList.contains("hidden")) return;
-
-              if (e.key === "Escape") close();
-              if (e.key === "ArrowLeft") show(idx - 1);
-              if (e.key === "ArrowRight") show(idx + 1);
-
-              // Flip hotkey: "b"
+              if (e.key === "Escape") closeLightbox();
+              if (e.key === "ArrowLeft") {
+                idx = (idx - 1 + fronts.length) % fronts.length;
+                side = "front";
+                renderLightbox();
+              }
+              if (e.key === "ArrowRight") {
+                idx = (idx + 1) % fronts.length;
+                side = "front";
+                renderLightbox();
+              }
               if (e.key.toLowerCase() === "b") {
-                const c = cards[idx];
-                if (!c.urlBack) return;
+                if (!backs[idx]) return;
                 side = (side === "front") ? "back" : "front";
-                render();
+                renderLightbox();
               }
             });
           </script>

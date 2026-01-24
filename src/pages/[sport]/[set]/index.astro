@@ -84,12 +84,35 @@ function inferFromFilename(filename: string) {
   const base = filename.replace(/\.[^.]+$/, "");
   const lower = base.toLowerCase();
 
-  // Detect tags anywhere
-  const rc = /\brc\b|rookie/i.test(lower);
-  const auto = /\bauto\b|autograph|signature|\bsig\b/i.test(lower);
-  const patch = /\bpatch\b|jersey/i.test(lower);
-  const relic = /\brelic\b/i.test(lower);
-  const parallel = /\bparallel\b|prizm|refractor|holo|foil|mosaic|scope|wave|tin[-\s]?type/i.test(lower);
+  // Detect tags anywhere (underscore-safe token matching)
+  const hasToken = (t: string) =>
+    new RegExp(`(^|[^a-z0-9])${t}([^a-z0-9]|$)`, "i").test(lower);
+
+  const rc = hasToken("rc") || hasToken("rookie");
+
+  const auto =
+    hasToken("auto") ||
+    hasToken("autograph") ||
+    hasToken("signature") ||
+    hasToken("sig");
+
+  const patch =
+    hasToken("patch") ||
+    hasToken("jersey");
+
+  const relic = hasToken("relic");
+
+  const parallel =
+    hasToken("parallel") ||
+    hasToken("prizm") ||
+    hasToken("refractor") ||
+    hasToken("holo") ||
+    hasToken("foil") ||
+    hasToken("mosaic") ||
+    hasToken("scope") ||
+    hasToken("wave") ||
+    hasToken("tintype") ||
+    /tin[-\s]?type/i.test(lower);
 
   // Numbered patterns in your filenames:
   // numbered-02of05, numbered_02of05, 02of05, 02/05

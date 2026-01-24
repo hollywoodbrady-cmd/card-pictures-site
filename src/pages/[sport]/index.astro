@@ -97,16 +97,7 @@ const title = `${niceName(sport)} Sets`;
         <div class="absolute -bottom-16 -left-10 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
 
         <h1 class="text-4xl font-semibold tracking-tight">{niceName(sport)}</h1>
-        <p class="mt-2 text-zinc-300">Choose a set to view your cards.</p>
-
-        <div class="mt-4 flex flex-wrap gap-2">
-          <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200">
-            {sets.length} set{sets.length === 1 ? "" : "s"}
-          </span>
-          <span class="rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200">
-            Folder: <span class="text-zinc-300">public/cards/{folder}/</span>
-          </span>
-        </div>
+        <p class="mt-2 text-zinc-300">Choose a set to view cards.</p>
       </div>
 
       {sets.length === 0 ? (

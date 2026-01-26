@@ -48,6 +48,66 @@ const buildStamp = new Date().toISOString();
             </a>
           ))}
         </div>
+<nav class="home-links">
+  <a href="/baseball/">Baseball</a>
+  <a href="/basketball/">Basketball</a>
+  <a href="/football/">Football</a>
+
+  <a href="/favorites/">Favorites</a>
+  <a href="/psa/">PSA Graded Cards</a>
+</nav>
+
+
+<section class="card-of-week">
+  <h2>Card of the Week</h2>
+
+  <a id="cow-link" href="#" aria-label="Open Card of the Week">
+    <img
+      id="cow-img"
+      src="/placeholder-card.webp"
+      alt="Card of the Week"
+      loading="lazy"
+      style="max-width: 420px; width: 100%; height: auto; border-radius: 12px;"
+    />
+  </a>
+
+  <p id="cow-meta" style="opacity: 0.8; margin-top: 8px;"></p>
+
+  <script is:inline>
+    async function pickCardOfWeek() {
+      try {
+        const res = await fetch("/good-cards.json", { cache: "no-store" });
+        const data = await res.json();
+        const cards = data?.cards ?? [];
+        if (!cards.length) return;
+
+        // Weighted random by score
+        const weights = cards.map(c => (c.score ?? 0) + 1);
+        const total = weights.reduce((a,b)=>a+b,0);
+        let r = Math.random() * total;
+        let pick = cards[cards.length - 1];
+        for (let i = 0; i < cards.length; i++) {
+          r -= weights[i];
+          if (r <= 0) { pick = cards[i]; break; }
+        }
+
+        const img = document.getElementById("cow-img");
+        const link = document.getElementById("cow-link");
+        const meta = document.getElementById("cow-meta");
+
+        img.src = pick.thumb;
+        img.alt = `Card of the Week (${pick.sport}: ${pick.setSlug})`;
+        link.href = pick.href;
+        meta.textContent = `${pick.sport.toUpperCase()} • ${pick.setSlug}`;
+      } catch (e) {
+        console.warn("Card of the Week failed:", e);
+      }
+    }
+
+    pickCardOfWeek();
+  </script>
+</section>
+
 
         <div class="card" style="padding:16px; margin-top:18px;">
   <div class="kicker">About</div>

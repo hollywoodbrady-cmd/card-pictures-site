@@ -14,3 +14,9 @@
     "tailwindcss": "^4.1.18"
   }
 }
+{
+  "scripts": {
+    "prebuild": "node scripts/build-good-cards.mjs",
+    "build": "astro build"
+  }
+}

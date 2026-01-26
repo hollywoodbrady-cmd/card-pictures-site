@@ -74,37 +74,87 @@ const buildStamp = new Date().toISOString();
 </div>
 
 
-{/* Card of the Week (compact) */}
-<div class="mt-6">
-  <div class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6">
-    <div class="flex items-center gap-4">
-      <img
-        id="cotwImg"
-        alt="Card of the Week"
-        class="h-20 w-20 rounded-xl ring-1 ring-zinc-800 bg-zinc-900 object-cover"
-        loading="lazy"
-        decoding="async"
-      />
-      <div class="min-w-0">
-        <div class="text-sm text-zinc-300">🔥 Card of the Week</div>
-        <div id="cotwTitle" class="mt-2 text-xl font-semibold tracking-tight truncate">
-          Random hit →
-        </div>
-        <div id="cotwMeta" class="mt-1 text-sm text-zinc-400 truncate">
-          Picked from “good cards”
+{/* Card of the Week (centered + bigger) */}
+<section class="mt-8">
+  <div class="text-center text-sm text-zinc-300">🔥 Card of the Week</div>
+
+  <div class="mt-4 flex justify-center">
+    <div class="w-full max-w-md rounded-3xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-5">
+      <a id="cotwLink" href="/" class="block">
+        <div class="rounded-2xl bg-zinc-900/40 ring-1 ring-zinc-800 p-3">
+          <img
+            id="cotwImg"
+            alt="Card of the Week"
+            class="mx-auto max-h-[520px] w-auto rounded-xl object-contain"
+            loading="lazy"
+            decoding="async"
+          />
         </div>
 
+        <div class="mt-4 text-center">
+          <div id="cotwTitle" class="text-lg font-semibold tracking-tight">
+            Random hit →
+          </div>
+          <div id="cotwMeta" class="mt-1 text-sm text-zinc-400">
+            Picked from “good cards”
+          </div>
+        </div>
+      </a>
+
+      <div class="mt-4 flex justify-center">
         <a
-          id="cotwLink"
+          id="cotwBtn"
           href="/"
-          class="mt-3 inline-flex items-center rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200 hover:ring-zinc-600 transition"
+          class="inline-flex items-center rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:ring-zinc-600 transition"
         >
           Open →
         </a>
       </div>
     </div>
   </div>
-</div>
+</section>
+
+<script is:inline>
+  (async () => {
+    try {
+      const res = await fetch("/good-cards.json", { cache: "no-store" });
+      const cards = await res.json();
+      if (!Array.isArray(cards) || cards.length === 0) return;
+
+      const pick = cards[Math.floor(Math.random() * cards.length)];
+
+      // Prefer a larger image if available, fallback to thumb
+      const imgSrc =
+        pick.image || pick.img || pick.front || pick.full || pick.thumb || pick.thumbnail;
+
+      const href = pick.href || pick.route || pick.page || pick.url || "/";
+      const title =
+        pick.title ||
+        pick.name ||
+        pick.player ||
+        (pick.filename ? pick.filename.replace(/\.[^/.]+$/, "") : "Card of the Week");
+
+      const metaParts = [];
+      if (pick.sport) metaParts.push(pick.sport);
+      if (pick.set) metaParts.push(pick.set);
+      if (pick.year) metaParts.push(pick.year);
+
+      const img = document.getElementById("cotwImg");
+      const t = document.getElementById("cotwTitle");
+      const m = document.getElementById("cotwMeta");
+      const a = document.getElementById("cotwLink");
+      const b = document.getElementById("cotwBtn");
+
+      if (img && imgSrc) img.src = imgSrc;
+      if (t) t.textContent = title;
+      if (m && metaParts.length) m.textContent = metaParts.join(" • ");
+      if (a) a.href = href;
+      if (b) b.href = href;
+    } catch (e) {
+      // fail silently
+    }
+  })();
+</script>
 
 <script is:inline>
   (async () => {

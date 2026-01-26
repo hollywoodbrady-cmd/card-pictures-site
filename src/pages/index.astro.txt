@@ -8,6 +8,12 @@ const sports = [
   { slug: "football", label: "Football", icon: "🏈" },
 ];
 
+// These are your “underneath” options
+const quickLinks = [
+  { href: "/favorites/", label: "Favorites", icon: "⭐", desc: "Your saved hits across all sports." },
+  { href: "/psa/", label: "PSA Graded Cards", icon: "🧾", desc: "Slabs only — quick browse of graded cards." },
+];
+
 const buildStamp = new Date().toISOString();
 ---
 
@@ -30,10 +36,11 @@ const buildStamp = new Date().toISOString();
 
         <h1 class="h1" style="margin-top:14px;">Browse my hits, rookies, and favorites.</h1>
 
-<p class="subtle" style="margin-top:10px; max-width: 60ch;">
-  Choose a sport → choose a set → tap a card to zoom.
-</p>
+        <p class="subtle" style="margin-top:10px; max-width: 60ch;">
+          Choose a sport → choose a set → tap a card to zoom.
+        </p>
 
+        {/* Sports tiles */}
         <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {sports.map((s) => (
             <a
@@ -49,23 +56,36 @@ const buildStamp = new Date().toISOString();
           ))}
         </div>
 
-        <div class="card" style="padding:16px; margin-top:18px;">
-  <div class="kicker">About</div>
-  <div class="subtle" style="margin-top:6px;">
-    Updated regularly — new uploads show up automatically.
-  </div>
-</div>
-<!-- Contact (under About) -->
-<div class="mt-4 card" style="padding: 14px 16px;">
-  <div class="kicker">Contact</div>
-  <p class="subtle" style="margin: 10px 0 0;">
-    Email:
-    <a class="btn" style="margin-left: 8px;" href="mailto:bradyripcards@gmail.com">
-      bradyripcards@gmail.com
-    </a>
-  </p>
-</div>
+        {/* Favorites + PSA tiles (same look) */}
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {quickLinks.map((q) => (
+            <a
+              href={q.href}
+              class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6"
+            >
+              <div class="text-sm text-zinc-300">{q.icon} {q.label}</div>
+              <div class="mt-2 text-xl font-semibold tracking-tight">Open →</div>
+              <div class="mt-2 text-sm text-zinc-400">{q.desc}</div>
+            </a>
+          ))}
+        </div>
 
+        <div class="card" style="padding:16px; margin-top:18px;">
+          <div class="kicker">About</div>
+          <div class="subtle" style="margin-top:6px;">
+            Updated regularly — new uploads show up automatically.
+          </div>
+        </div>
+
+        <div class="mt-4 card" style="padding: 14px 16px;">
+          <div class="kicker">Contact</div>
+          <p class="subtle" style="margin: 10px 0 0;">
+            Email:
+            <a class="btn" style="margin-left: 8px;" href="mailto:bradyripcards@gmail.com">
+              bradyripcards@gmail.com
+            </a>
+          </p>
+        </div>
 
         <div class="mt-3 text-xs text-zinc-500">
           Build: {buildStamp}

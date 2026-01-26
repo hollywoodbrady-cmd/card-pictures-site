@@ -74,55 +74,75 @@ const buildStamp = new Date().toISOString();
 </div>
 
 
-<section class="card-of-week">
-  <h2>Card of the Week</h2>
+{/* Card of the Week (compact) */}
+<div class="mt-6">
+  <div class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6">
+    <div class="flex items-center gap-4">
+      <img
+        id="cotwImg"
+        alt="Card of the Week"
+        class="h-20 w-20 rounded-xl ring-1 ring-zinc-800 bg-zinc-900 object-cover"
+        loading="lazy"
+        decoding="async"
+      />
+      <div class="min-w-0">
+        <div class="text-sm text-zinc-300">🔥 Card of the Week</div>
+        <div id="cotwTitle" class="mt-2 text-xl font-semibold tracking-tight truncate">
+          Random hit →
+        </div>
+        <div id="cotwMeta" class="mt-1 text-sm text-zinc-400 truncate">
+          Picked from “good cards”
+        </div>
 
-  <a id="cow-link" href="#" aria-label="Open Card of the Week">
-    <img
-      id="cow-img"
-      src="/placeholder-card.webp"
-      alt="Card of the Week"
-      loading="lazy"
-      style="max-width: 420px; width: 100%; height: auto; border-radius: 12px;"
-    />
-  </a>
+        <a
+          id="cotwLink"
+          href="/"
+          class="mt-3 inline-flex items-center rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200 hover:ring-zinc-600 transition"
+        >
+          Open →
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
 
-  <p id="cow-meta" style="opacity: 0.8; margin-top: 8px;"></p>
+<script is:inline>
+  (async () => {
+    try {
+      const res = await fetch("/good-cards.json", { cache: "no-store" });
+      const cards = await res.json();
+      if (!Array.isArray(cards) || cards.length === 0) return;
 
-  <script is:inline>
-    async function pickCardOfWeek() {
-      try {
-        const res = await fetch("/good-cards.json", { cache: "no-store" });
-        const data = await res.json();
-        const cards = data?.cards ?? [];
-        if (!cards.length) return;
+      const pick = cards[Math.floor(Math.random() * cards.length)];
 
-        // Weighted random by score
-        const weights = cards.map(c => (c.score ?? 0) + 1);
-        const total = weights.reduce((a,b)=>a+b,0);
-        let r = Math.random() * total;
-        let pick = cards[cards.length - 1];
-        for (let i = 0; i < cards.length; i++) {
-          r -= weights[i];
-          if (r <= 0) { pick = cards[i]; break; }
-        }
+      // Try common field names defensively
+      const imgSrc = pick.thumb || pick.thumbnail || pick.image || pick.img;
+      const href = pick.href || pick.route || pick.page || pick.url || "/";
+      const title =
+        pick.title ||
+        pick.name ||
+        pick.player ||
+        (pick.filename ? pick.filename.replace(/\.[^/.]+$/, "") : "Card of the Week");
 
-        const img = document.getElementById("cow-img");
-        const link = document.getElementById("cow-link");
-        const meta = document.getElementById("cow-meta");
+      const metaParts = [];
+      if (pick.sport) metaParts.push(pick.sport);
+      if (pick.set) metaParts.push(pick.set);
+      if (pick.year) metaParts.push(pick.year);
 
-        img.src = pick.thumb;
-        img.alt = `Card of the Week (${pick.sport}: ${pick.setSlug})`;
-        link.href = pick.href;
-        meta.textContent = `${pick.sport.toUpperCase()} • ${pick.setSlug}`;
-      } catch (e) {
-        console.warn("Card of the Week failed:", e);
-      }
+      const img = document.getElementById("cotwImg");
+      const t = document.getElementById("cotwTitle");
+      const m = document.getElementById("cotwMeta");
+      const a = document.getElementById("cotwLink");
+
+      if (img && imgSrc) img.src = imgSrc;
+      if (t) t.textContent = title;
+      if (m && metaParts.length) m.textContent = metaParts.join(" • ");
+      if (a) a.href = href;
+    } catch (e) {
+      // fail silently
     }
-
-    pickCardOfWeek();
-  </script>
-</section>
+  })();
+</script>
 
 
         <div class="card" style="padding:16px; margin-top:18px;">

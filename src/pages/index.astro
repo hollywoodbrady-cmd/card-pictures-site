@@ -48,6 +48,31 @@ const buildStamp = new Date().toISOString();
             </a>
           ))}
         </div>
+{/* Favorites + PSA tiles (same look as sports) */}
+<div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <a
+    href="/favorites/"
+    class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6"
+  >
+    <div class="text-sm text-zinc-300">⭐ Favorites</div>
+    <div class="mt-2 text-xl font-semibold tracking-tight">Open →</div>
+    <div class="mt-2 text-sm text-zinc-400">
+      Your saved hits across all sports.
+    </div>
+  </a>
+
+  <a
+    href="/psa/"
+    class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6"
+  >
+    <div class="text-sm text-zinc-300">🧾 PSA Graded Cards</div>
+    <div class="mt-2 text-xl font-semibold tracking-tight">Open →</div>
+    <div class="mt-2 text-sm text-zinc-400">
+      Slabs only — quick browse of graded cards.
+    </div>
+  </a>
+</div>
+
 
 <section class="card-of-week">
   <h2>Card of the Week</h2>

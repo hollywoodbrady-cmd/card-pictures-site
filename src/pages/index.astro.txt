@@ -8,7 +8,7 @@ const sports = [
   { slug: "football", label: "Football", icon: "🏈" },
 ];
 
-// These are your “underneath” options
+// “Underneath” options (same tile look)
 const quickLinks = [
   { href: "/favorites/", label: "Favorites", icon: "⭐", desc: "Your saved hits across all sports." },
   { href: "/psa/", label: "PSA Graded Cards", icon: "🧾", desc: "Slabs only — quick browse of graded cards." },
@@ -26,7 +26,9 @@ const buildStamp = new Date().toISOString();
 
   <body class="min-h-screen bg-zinc-950 text-zinc-100">
     <main class="mx-auto max-w-6xl px-4 py-10">
-      <div class="rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-8 relative overflow-hidden">
+      <div
+        class="rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-8 relative overflow-hidden"
+      >
         <div class="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl"></div>
         <div class="absolute -bottom-20 -left-16 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl"></div>
 
@@ -56,7 +58,7 @@ const buildStamp = new Date().toISOString();
           ))}
         </div>
 
-        {/* Favorites + PSA tiles (same look) */}
+        {/* Favorites + PSA tiles (same look as sports) */}
         <div class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {quickLinks.map((q) => (
             <a
@@ -70,6 +72,10 @@ const buildStamp = new Date().toISOString();
           ))}
         </div>
 
+        {/* IMPORTANT: Removed the old inline text link row that caused:
+            "Baseball Basketball Football Favorites PSA Graded Cards"
+            to appear under the tiles. */}
+
         <div class="card" style="padding:16px; margin-top:18px;">
           <div class="kicker">About</div>
           <div class="subtle" style="margin-top:6px;">
@@ -77,6 +83,7 @@ const buildStamp = new Date().toISOString();
           </div>
         </div>
 
+        {/* Contact (under About) */}
         <div class="mt-4 card" style="padding: 14px 16px;">
           <div class="kicker">Contact</div>
           <p class="subtle" style="margin: 10px 0 0;">

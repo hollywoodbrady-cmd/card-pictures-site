@@ -1,20 +1,23 @@
 ---
-import favorites from "../../data/favorites.json";
+import "../../styles/global.css";
 ---
 
-<h1>Favorites</h1>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>Favorites</title>
+  </head>
 
-<div class="grid">
-  {favorites.map(card => (
-    <a href={card.href} class="card">
-      <img src={card.thumb} alt={card.title} loading="lazy" />
-      <div>{card.title}</div>
-    </a>
-  ))}
-</div>
-
-<style>
-  .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(180px,1fr)); gap: 16px; }
-  .card img { width: 100%; height: auto; border-radius: 10px; }
-  .card { text-decoration: none; }
-</style>
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <div class="rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-8">
+        <a class="btn" href="/">← Home</a>
+        <h1 class="h1" style="margin-top:14px;">Favorites</h1>
+        <p class="subtle" style="margin-top:10px;">
+          Cards I like...
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

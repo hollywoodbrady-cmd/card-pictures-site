@@ -22,6 +22,7 @@ type MetaMap = Record<
     auto: boolean;
     patch: boolean;
     relic: boolean;
+    firstBowman: boolean; // <-- NEW (Bowman-only)
     numbered: string; // e.g. "01/50"
     parallel: string; // e.g. "Tin Type", "Purple Scope"
   }>
@@ -102,6 +103,13 @@ function inferFromFilename(filename: string) {
 
   const relic = hasToken("relic");
 
+  // NEW: 1st Bowman detection
+  // Best: include "__1st-bowman__" in filename (recommended)
+  const firstBowman =
+    hasToken("1st-bowman") ||
+    hasToken("1st_bowman") ||
+    hasToken("1stbowman");
+
   const parallel =
     hasToken("parallel") ||
     hasToken("prizm") ||
@@ -122,7 +130,8 @@ function inferFromFilename(filename: string) {
   const mNumbered3 = lower.match(/\b(\d+)\s*of\s*(\d+)\b/i);
   const mNumbered4 = lower.match(/\b(\d+)\s*\/\s*(\d+)\b/i);
 
-  const pick = (m: RegExpMatchArray | null) => (m ? normalizeNumbered(`${m[1]}/${m[2]}`) : null);
+  const pick = (m: RegExpMatchArray | null) =>
+    m ? normalizeNumbered(`${m[1]}/${m[2]}`) : null;
 
   numbered =
     pick(mNumbered1) ??
@@ -131,9 +140,6 @@ function inferFromFilename(filename: string) {
     pick(mNumbered4);
 
   // Smarter player/team inference for your "__" naming scheme
-  // examples:
-  // jayson-tatum__boston-celtics__base
-  // sam-aldegueri__los-angeles-angels__rc__numbered-01of10__allen-ginter__front
   let player = "";
   let team = "";
 
@@ -145,7 +151,9 @@ function inferFromFilename(filename: string) {
 
     // team is usually second segment (if it looks like a team and not a tag)
     const tagLike = (s: string) =>
-      /^(rc|rookie|base|auto|patch|relic|insert|numbered|parallel|foil|holo|mosaic|scope|wave|tin[-\s]?type)(-|$)/i.test(s);
+      /^(rc|rookie|base|auto|patch|relic|insert|numbered|parallel|foil|holo|mosaic|scope|wave|tin[-\s]?type|1st-bowman|1st_bowman|1stbowman)(-|$)/i.test(
+        s
+      );
 
     if (segs.length >= 2 && !tagLike(segs[1])) {
       team = niceName(segs[1]);
@@ -166,6 +174,7 @@ function inferFromFilename(filename: string) {
     auto,
     patch,
     relic,
+    firstBowman, // <-- NEW
     numbered,
     parallel,
   };
@@ -194,6 +203,9 @@ export async function getStaticPaths() {
 
 const sport = (Astro.params.sport ?? "").toString();
 const set = (Astro.params.set ?? "").toString();
+
+// NEW: only show 1st Bowman filter on Bowman sets
+const isBowmanSet = /(^|[-_])bowman($|[-_])/i.test(set) || /bowman/i.test(set);
 
 // Case-safe folder for runtime render
 const baseDir = path.join(process.cwd(), "public", "cards");
@@ -264,6 +276,9 @@ const cards = fullFiles.map((frontImg) => {
   const patch = Boolean(m.patch ?? inferred.patch);
   const relic = Boolean(m.relic ?? inferred.relic);
 
+  // NEW
+  const firstBowman = Boolean(m.firstBowman ?? inferred.firstBowman);
+
   const numberedRaw = (m.numbered ?? inferred.numbered ?? "").toString();
   const numbered = normalizeNumbered(numberedRaw);
 
@@ -277,6 +292,7 @@ const cards = fullFiles.map((frontImg) => {
     relic ? "relic" : "",
     numbered ? "numbered" : "",
     parallel ? "parallel" : "",
+    (isBowmanSet && firstBowman) ? "1st" : "", // <-- NEW tag (Bowman sets only)
   ].filter(Boolean);
 
   // Pair back by key (front name normalized)
@@ -301,6 +317,7 @@ const cards = fullFiles.map((frontImg) => {
     auto,
     patch,
     relic,
+    firstBowman, // <-- NEW
     numbered,
     parallel,
     parallelText,
@@ -365,6 +382,11 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
           <button class="chip" type="button" data-filter="relic">Relic</button>
           <button class="chip" type="button" data-filter="numbered">#’d</button>
           <button class="chip" type="button" data-filter="parallel">Parallel</button>
+
+          {/* NEW: only show for Bowman sets */}
+          {isBowmanSet ? (
+            <button class="chip" type="button" data-filter="1st">1st Bowman</button>
+          ) : null}
         </div>
       </div>
 
@@ -418,6 +440,10 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                     {c.relic && <span class="pill">RELIC</span>}
                     {c.numbered && <span class="pill">{c.numbered}</span>}
                     {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
+
+                    {/* NEW: 1st Bowman pill only in Bowman sets */}
+                    {isBowmanSet && c.firstBowman && <span class="pill">1ST</span>}
+
                     {c.hasBack && <span class="pill">2-SIDED</span>}
                   </div>
                 </div>

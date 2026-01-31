@@ -2,11 +2,11 @@
   "name": "card-gallery-site",
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "prebuild": "node scripts/build-good-cards.mjs",
-    "build": "astro build",
-    "preview": "astro preview"
-  },
+  "dev": "node scripts/build-good-cards.mjs && astro dev",
+  "prebuild": "node scripts/build-good-cards.mjs",
+  "build": "astro build",
+  "preview": "astro preview"
+},
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
     "astro": "^4.1.18",

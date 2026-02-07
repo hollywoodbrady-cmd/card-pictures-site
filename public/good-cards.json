@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-02-07T04:27:52.423Z",
-  "count": 61,
+  "generatedAt": "2026-02-07T07:22:53.200Z",
+  "count": 62,
   "cards": [
     {
       "sport": "baseball",
@@ -238,25 +238,33 @@
       "sport": "baseball",
       "setSlug": "2025-topps-cosmic",
       "href": "/baseball/2025-topps-cosmic/",
-      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Brooks_Lee_Minnesota_Twins_UB-4_Ultraviolet_Beam_rookie_front.webp",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/brooks-lee__minnesota-twins__ub-4__ultraviolet-beam__topps-cosmic__rc__front.webp",
       "score": 10,
-      "filename": "Topps_Cosmic_2025_Brooks_Lee_Minnesota_Twins_UB-4_Ultraviolet_Beam_rookie_front.webp"
+      "filename": "brooks-lee__minnesota-twins__ub-4__ultraviolet-beam__topps-cosmic__rc__front.webp"
     },
     {
       "sport": "baseball",
       "setSlug": "2025-topps-cosmic",
       "href": "/baseball/2025-topps-cosmic/",
-      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Dylan_Crews_Washington_Nationals_PPS-8_Planetary_Pursuit_rookie_front.webp",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/dylan-crews_washington-nationals__pps-8__planetary-pursuit__topps-cosmic__rc__front.webp",
       "score": 10,
-      "filename": "Topps_Cosmic_2025_Dylan_Crews_Washington_Nationals_PPS-8_Planetary_Pursuit_rookie_front.webp"
+      "filename": "dylan-crews_washington-nationals__pps-8__planetary-pursuit__topps-cosmic__rc__front.webp"
     },
     {
       "sport": "baseball",
       "setSlug": "2025-topps-cosmic",
       "href": "/baseball/2025-topps-cosmic/",
-      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Grant_McCray_San_Francisco_Giants_28_Base_rookie_front.webp",
-      "score": 10,
-      "filename": "Topps_Cosmic_2025_Grant_McCray_San_Francisco_Giants_28_Base_rookie_front.webp"
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/rece-hinds__cincinnati-reds__rc__base__topps-cosmic__front.webp",
+      "score": 13,
+      "filename": "rece-hinds__cincinnati-reds__rc__base__topps-cosmic__front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/spencer-schwellenbach__atlanta-braves__rc__base__topps-cosmic__front.webp",
+      "score": 20,
+      "filename": "spencer-schwellenbach__atlanta-braves__rc__base__topps-cosmic__front.webp"
     },
     {
       "sport": "baseball",

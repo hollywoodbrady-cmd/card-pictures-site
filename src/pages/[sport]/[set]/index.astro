@@ -3,6 +3,9 @@ import "../../../styles/global.css";
 import fs from "node:fs/promises";
 import path from "node:path";
 
+// ✅ Sale map lives here now:
+import forSale from "../../../data/for-sale.json";
+
 function niceName(slug: string) {
   return slug
     .replace(/[-_]+/g, " ")
@@ -97,9 +100,7 @@ function inferFromFilename(filename: string) {
     hasToken("signature") ||
     hasToken("sig");
 
-  const patch =
-    hasToken("patch") ||
-    hasToken("jersey");
+  const patch = hasToken("patch") || hasToken("jersey");
 
   const relic = hasToken("relic");
 
@@ -163,7 +164,9 @@ function inferFromFilename(filename: string) {
   } else {
     // fallback
     const parts = base.split(/[-_]+/g).filter(Boolean);
-    player = parts.length ? niceName(parts.slice(0, 2).join(" ")) : niceName(base);
+    player = parts.length
+      ? niceName(parts.slice(0, 2).join(" "))
+      : niceName(base);
     team = "";
   }
 
@@ -303,6 +306,9 @@ const cards = fullFiles.map((frontImg) => {
   const base = frontImg.replace(/\.[^.]+$/, "");
   const thumbName = thumbByBase.get(base) ?? frontImg;
 
+  // ✅ SALE lookup (keyed by front filename)
+  const sale = (forSale as any)[frontImg] ?? null;
+
   return {
     img: frontImg,
     urlFront: toUrl(folder, set, fullSub, frontImg),
@@ -322,6 +328,9 @@ const cards = fullFiles.map((frontImg) => {
     parallel,
     parallelText,
     tags,
+
+    // ✅ expose sale info to template
+    sale,
   };
 });
 
@@ -433,6 +442,24 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
                   <div class="text-xs font-medium text-zinc-200 truncate">{c.player}</div>
                   {c.team ? <div class="text-[10px] text-zinc-400 truncate">{c.team}</div> : null}
 
+                  {/* ✅ SALE / SOLD UI */}
+                  {c.sale?.forSale && !c.sale?.sold && (
+                    <div class="sale-box">
+                      <div class="sale-price">For Sale: ${c.sale.price}</div>
+                      <a
+                        class="sale-link"
+                        href={c.sale.buyUrl}
+                        target="_blank"
+                        rel="noopener"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Buy Now
+                      </a>
+                    </div>
+                  )}
+
+                  {c.sale?.sold && <div class="sold-box">SOLD</div>}
+
                   <div class="mt-1 flex flex-wrap gap-1">
                     {c.rc && <span class="pill">RC</span>}
                     {c.auto && <span class="pill">AUTO</span>}
@@ -532,6 +559,45 @@ const title = `${niceName(sport)} • ${niceName(set)}`;
               border:1px solid rgba(39,39,42,1);
               background:rgba(24,24,27,.6);
               color:rgba(212,212,216,1);
+            }
+
+            /* ✅ sale styles */
+            .sale-box{
+              margin-top:6px;
+              padding:6px 8px;
+              border-radius:10px;
+              border:1px solid rgba(82,82,91,1);
+              background:rgba(24,24,27,.75);
+              display:flex;
+              align-items:center;
+              justify-content:space-between;
+              gap:8px;
+            }
+            .sale-price{
+              font-size:10px;
+              color:rgba(244,244,245,1);
+              white-space:nowrap;
+            }
+            .sale-link{
+              font-size:10px;
+              padding:4px 6px;
+              border-radius:8px;
+              border:1px solid rgba(82,82,91,1);
+              color:white;
+              text-decoration:none;
+            }
+            .sale-link:hover{
+              border-color:rgba(161,161,170,1);
+            }
+            .sold-box{
+              margin-top:6px;
+              padding:6px 8px;
+              border-radius:10px;
+              border:1px solid rgba(113,63,18,1);
+              background:rgba(120,53,15,.35);
+              font-size:10px;
+              color:rgba(254,215,170,1);
+              text-align:center;
             }
           </style>
 

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-02-07T04:21:12.335Z",
-  "count": 44,
+  "generatedAt": "2026-02-07T04:27:52.423Z",
+  "count": 61,
   "cards": [
     {
       "sport": "baseball",
@@ -273,6 +273,142 @@
       "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Roki_Sasaki_Los_Angeles_Dodgers_68_Base_rookie_front.webp",
       "score": 10,
       "filename": "Topps_Cosmic_2025_Roki_Sasaki_Los_Angeles_Dodgers_68_Base_rookie_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsChromeProDebut_Jared-Serna_PDC-121_front.webp",
+      "score": 16,
+      "filename": "2025_ToppsChromeProDebut_Jared-Serna_PDC-121_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsChromeProDebut_Jared-Sundstrom_PDC-131_front.webp",
+      "score": 16,
+      "filename": "2025_ToppsChromeProDebut_Jared-Sundstrom_PDC-131_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Andrew-Painter_PD-119_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Andrew-Painter_PD-119_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Asbel-Gonzalez_PD-133_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Asbel-Gonzalez_PD-133_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Ben-Hess_PD-186_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Ben-Hess_PD-186_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Colson-Montgomery_STAR-18_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Colson-Montgomery_STAR-18_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Drew-Beam_PD-144_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Drew-Beam_PD-144_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Jeremy-Rodriguez_PD-85_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Jeremy-Rodriguez_PD-85_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Lisbel-Diaz_PD-137_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Lisbel-Diaz_PD-137_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Nick-McLain_PD-190_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Nick-McLain_PD-190_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Nick-Mitchell_PD-149_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Nick-Mitchell_PD-149_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Ronny-Hernandez_PD-161_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Ronny-Hernandez_PD-161_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Sheng-En-Lin_BP-70_duplicate_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Sheng-En-Lin_BP-70_duplicate_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Sheng-En-Lin_BP-70_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Sheng-En-Lin_BP-70_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Travis-Bazzana_BP-1_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Travis-Bazzana_BP-1_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Travis-Sikora_PD-8_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Travis-Sikora_PD-8_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "bowman-2025-pro-debut",
+      "href": "/baseball/bowman-2025-pro-debut/",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/2025_ToppsProDebut_Zander-Mueth_PD-120_front.webp",
+      "score": 15,
+      "filename": "2025_ToppsProDebut_Zander-Mueth_PD-120_front.webp"
     },
     {
       "sport": "baseball",

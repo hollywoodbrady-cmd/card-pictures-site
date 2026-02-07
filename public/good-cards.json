@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-02-07T07:22:53.200Z",
-  "count": 62,
+  "generatedAt": "2026-02-07T07:49:22.871Z",
+  "count": 64,
   "cards": [
     {
       "sport": "baseball",
@@ -254,6 +254,30 @@
       "sport": "baseball",
       "setSlug": "2025-topps-cosmic",
       "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/james-wood__washington-nationals__sn-10__stella-nova__rc__front.webp",
+      "score": 10,
+      "filename": "james-wood__washington-nationals__sn-10__stella-nova__rc__front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/marcelo-mayer__boston-red-sox__91__aqua-equinox__numbered-150of199__rc_front.webp",
+      "score": 43,
+      "filename": "marcelo-mayer__boston-red-sox__91__aqua-equinox__numbered-150of199__rc_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/mookie-betts__los-angeles-dodgers__99__aqua-equinox__numbered-162of199__front.webp",
+      "score": 33,
+      "filename": "mookie-betts__los-angeles-dodgers__99__aqua-equinox__numbered-162of199__front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
       "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/rece-hinds__cincinnati-reds__rc__base__topps-cosmic__front.webp",
       "score": 13,
       "filename": "rece-hinds__cincinnati-reds__rc__base__topps-cosmic__front.webp"
@@ -262,25 +286,17 @@
       "sport": "baseball",
       "setSlug": "2025-topps-cosmic",
       "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/roki-sasaki__los-angeles-dodgers__ub-6__ultraviolet-beam__rc__front.webp",
+      "score": 10,
+      "filename": "roki-sasaki__los-angeles-dodgers__ub-6__ultraviolet-beam__rc__front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
       "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/spencer-schwellenbach__atlanta-braves__rc__base__topps-cosmic__front.webp",
       "score": 20,
       "filename": "spencer-schwellenbach__atlanta-braves__rc__base__topps-cosmic__front.webp"
-    },
-    {
-      "sport": "baseball",
-      "setSlug": "2025-topps-cosmic",
-      "href": "/baseball/2025-topps-cosmic/",
-      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Marcelo_Mayer_Boston_Red_Sox_91_Aqua_Equinox_150199_150of199_rookie_front.webp",
-      "score": 18,
-      "filename": "Topps_Cosmic_2025_Marcelo_Mayer_Boston_Red_Sox_91_Aqua_Equinox_150199_150of199_rookie_front.webp"
-    },
-    {
-      "sport": "baseball",
-      "setSlug": "2025-topps-cosmic",
-      "href": "/baseball/2025-topps-cosmic/",
-      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Roki_Sasaki_Los_Angeles_Dodgers_68_Base_rookie_front.webp",
-      "score": 10,
-      "filename": "Topps_Cosmic_2025_Roki_Sasaki_Los_Angeles_Dodgers_68_Base_rookie_front.webp"
     },
     {
       "sport": "baseball",

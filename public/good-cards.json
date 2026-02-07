@@ -1,7 +1,23 @@
 {
-  "generatedAt": "2026-02-02T10:21:50.172Z",
-  "count": 37,
+  "generatedAt": "2026-02-07T04:21:12.335Z",
+  "count": 44,
   "cards": [
+    {
+      "sport": "baseball",
+      "setSlug": "2005-topps-chrome",
+      "href": "/baseball/2005-topps-chrome/",
+      "thumb": "/cards/baseball/2005-topps-chrome/thumbs/jose-reyes__new-york-mets__base__numbered-035of225__2005-topps-chrome__front.webp",
+      "score": 36,
+      "filename": "jose-reyes__new-york-mets__base__numbered-035of225__2005-topps-chrome__front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2005-topps-chrome",
+      "href": "/baseball/2005-topps-chrome/",
+      "thumb": "/cards/baseball/2005-topps-chrome/thumbs/magglio-ordonez__detroit-tigers__base__numbered-184of225__2005-topps-chrome__front.webp",
+      "score": 36,
+      "filename": "magglio-ordonez__detroit-tigers__base__numbered-184of225__2005-topps-chrome__front.webp"
+    },
     {
       "sport": "baseball",
       "setSlug": "2023-topps",
@@ -217,6 +233,46 @@
       "thumb": "/cards/baseball/2025-topps-chrome/thumbs/luis-contreras__houston-astros__rc__auto__front.webp",
       "score": 45,
       "filename": "luis-contreras__houston-astros__rc__auto__front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Brooks_Lee_Minnesota_Twins_UB-4_Ultraviolet_Beam_rookie_front.webp",
+      "score": 10,
+      "filename": "Topps_Cosmic_2025_Brooks_Lee_Minnesota_Twins_UB-4_Ultraviolet_Beam_rookie_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Dylan_Crews_Washington_Nationals_PPS-8_Planetary_Pursuit_rookie_front.webp",
+      "score": 10,
+      "filename": "Topps_Cosmic_2025_Dylan_Crews_Washington_Nationals_PPS-8_Planetary_Pursuit_rookie_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Grant_McCray_San_Francisco_Giants_28_Base_rookie_front.webp",
+      "score": 10,
+      "filename": "Topps_Cosmic_2025_Grant_McCray_San_Francisco_Giants_28_Base_rookie_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Marcelo_Mayer_Boston_Red_Sox_91_Aqua_Equinox_150199_150of199_rookie_front.webp",
+      "score": 18,
+      "filename": "Topps_Cosmic_2025_Marcelo_Mayer_Boston_Red_Sox_91_Aqua_Equinox_150199_150of199_rookie_front.webp"
+    },
+    {
+      "sport": "baseball",
+      "setSlug": "2025-topps-cosmic",
+      "href": "/baseball/2025-topps-cosmic/",
+      "thumb": "/cards/baseball/2025-topps-cosmic/thumbs/Topps_Cosmic_2025_Roki_Sasaki_Los_Angeles_Dodgers_68_Base_rookie_front.webp",
+      "score": 10,
+      "filename": "Topps_Cosmic_2025_Roki_Sasaki_Los_Angeles_Dodgers_68_Base_rookie_front.webp"
     },
     {
       "sport": "baseball",

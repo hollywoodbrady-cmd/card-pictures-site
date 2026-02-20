@@ -90,6 +90,7 @@ function inferFromFilename(filename: string) {
     new RegExp(`(^|[^a-z0-9])${t}([^a-z0-9]|$)`, "i").test(lower);
 
   const rc = hasToken("rc") || hasToken("rookie");
+  const fav = hasToken("fav") || hasToken("favorite");
 
   const auto =
     hasToken("auto") ||
@@ -284,6 +285,7 @@ const cards = fullFiles.map((frontImg) => {
   const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
 
   const tags = [
+    fav ? "fav" : "",
     rc ? "rc" : "",
     auto ? "auto" : "",
     patch ? "patch" : "",

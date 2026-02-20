@@ -1,0 +1,18 @@
+﻿{
+  "cards": [
+    {
+      "title": "Slade Caldwell — PSA 9 Reptilian",
+      "thumb": "/psa/thumbs/slade_caldwell_2025_bowman_chr.pros_reptilian-refractor_bcp-21_front.webp",
+      "front": "/psa/front-webp/slade_caldwell_2025_bowman_chr.pros_reptilian-refractor_bcp-21_front.webp",
+      "back": null,
+      "setHref": "/psa/"
+    },
+    {
+      "title": "Yolfran Castillo — Auto /199",
+      "thumb": "/cards/baseball/bowman-2025-pro-debut/thumbs/yolfran-castillo__texas-rangers__auto__numbered-151of199__pro-debut__front.webp",
+      "front": "/cards/baseball/bowman-2025-pro-debut/front-webp/yolfran-castillo__texas-rangers__auto__numbered-151of199__pro-debut__front.webp",
+      "back": "/cards/baseball/bowman-2025-pro-debut/back-webp/yolfran-castillo__texas-rangers__auto__numbered-151of199__pro-debut__back.webp",
+      "setHref": "/baseball/bowman-2025-pro-debut/"
+    }
+  ]
+}

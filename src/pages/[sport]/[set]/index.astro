@@ -31,9 +31,105 @@ function getThumb(card) {
   );
 }
 
+function basenameNoExt(p) {
+  const s = String(p ?? "");
+  const base = s.split("/").pop() ?? "";
+  return base.replace(/\.webp$/i, "");
+}
+
+// Remove terminal markers like __front / __back / __fav__
+function stripTerminalMarkers(nameNoExt) {
+  return String(nameNoExt ?? "")
+    .replace(/__(front|back)$/, "")
+    .replace(/__fav__$/, "")
+    .replace(/__(front|back)__fav__$/, "")
+    .replace(/__fav__(__(front|back))?$/, "")
+    .trim();
+}
+
+function titleCase(s) {
+  return String(s ?? "")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+// Turn "andrew-mccutchen" or "dylan-crews" or "dylan-crews_washington-nationals" into "Andrew McCutchen"
+// We only use the FIRST segment before "__" and (if it contains "_") take the part before "_"
+function parsePlayerNameFromFilename(filenameNoExt) {
+  const cleaned = stripTerminalMarkers(filenameNoExt);
+  const firstSeg = cleaned.split("__")[0] ?? "";
+  const namePart = firstSeg.split("_")[0] ?? firstSeg; // handles "name_team" style
+  const spaced = namePart.replace(/[-_]+/g, " ").trim();
+  return titleCase(spaced);
+}
+
+// Derive tags like RC / Auto / Patch / Numbered / Mini / Parallel / Foil from filename tokens
+function parseLabelsFromFilename(filenameNoExt) {
+  const cleaned = stripTerminalMarkers(filenameNoExt);
+  const parts = cleaned.split("__").map((x) => x.toLowerCase());
+
+  const labels = [];
+
+  const has = (k) => parts.includes(k);
+
+  if (has("rc")) labels.push("Rookie");
+  if (has("auto")) labels.push("Auto");
+  if (has("patch")) labels.push("Patch");
+  if (has("mini")) labels.push("Mini");
+
+  // Numbered: numbered-02of05, numbered-162of199, etc.
+  const numbered = parts.find((p) => p.startsWith("numbered-"));
+  if (numbered) {
+    const m = numbered.match(/^numbered-(\d+)of(\d+)$/i);
+    if (m) {
+      const a = String(parseInt(m[1], 10));
+      const b = String(parseInt(m[2], 10));
+      labels.push(`#’d ${a}/${b}`);
+    } else {
+      labels.push("Numbered");
+    }
+  }
+
+  // Parallel / Foil hints
+  const parallel = parts.find((p) => p.startsWith("parallel"));
+  if (parallel) {
+    // parallel, parallel-foil, parallel-blue, etc.
+    const pretty = parallel.replace(/^parallel-?/, "").replace(/-/g, " ").trim();
+    labels.push(pretty ? `Parallel (${titleCase(pretty)})` : "Parallel");
+  }
+  if (parts.includes("foil")) labels.push("Foil");
+
+  // Common cosmic insert IDs (et-16, sn-10, ub-6, pps-8, etc.)
+  const insertId = parts.find((p) => /^[a-z]{1,4}-\d{1,3}$/.test(p));
+  if (insertId) labels.push(insertId.toUpperCase());
+
+  // De-dupe while keeping order
+  return [...new Set(labels)];
+}
+
+// Parse year + set display from route param "2025-topps-allen-and-ginter"
+function parseYearAndSetDisplay(setSlug) {
+  const s = String(setSlug ?? "");
+  const m = s.match(/^(\d{4})-(.+)$/);
+  const year = m ? m[1] : "";
+  const rest = m ? m[2] : s;
+
+  // prettify: hyphens -> spaces, title case, fix a couple common words
+  let setName = rest.replace(/-/g, " ").trim();
+  setName = titleCase(setName);
+
+  // small cosmetic tweaks
+  setName = setName.replace(/\bAnd\b/g, "&");
+  setName = setName.replace(/\bMlb\b/g, "MLB");
+  setName = setName.replace(/\bPsa\b/g, "PSA");
+
+  return { year, setName };
+}
+
 // ✅ Required for static build dynamic routes
 export async function getStaticPaths() {
-  // During `astro build`, process.cwd() is your repo root (C:\Site\GitHub\card-gallery-site)
   const goodCardsPath = path.join(process.cwd(), "public", "good-cards.json");
 
   let all = [];
@@ -52,14 +148,13 @@ export async function getStaticPaths() {
     if (sp) setPaths.add(sp);
   }
 
-  // Turn "/baseball/2025-topps-cosmic/" => { sport:"baseball", set:"2025-topps-cosmic" }
   const paths = [];
   for (const sp of setPaths) {
     const parts = sp.split("/").filter(Boolean);
     if (parts.length < 2) continue;
 
     const sport = parts[0];
-    const set = parts.slice(1).join("/"); // supports nested sets if you ever do
+    const set = parts.slice(1).join("/");
 
     paths.push({
       params: { sport, set },
@@ -74,7 +169,9 @@ export async function getStaticPaths() {
 const { sport, set } = Astro.params;
 const targetSetPath = `/${sport}/${set}/`;
 
-// Use props passed from getStaticPaths (fast, avoids reread)
+const { year, setName } = parseYearAndSetDisplay(set);
+
+// Use props passed from getStaticPaths
 const allCards = Array.isArray(Astro.props?.allCards) ? Astro.props.allCards : [];
 const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
 ---
@@ -83,15 +180,17 @@ const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>{sport}/{set}</title>
+    <title>{year ? `${year} ` : ""}{setName} • {sport}</title>
   </head>
 
   <body>
     <header class="top">
       <a class="back" href="/">Home</a>
       <div class="title">
-        <h1>{set}</h1>
-        <div class="sub">{sport}</div>
+        <h1>{setName}</h1>
+        <div class="sub">
+          {year ? `${year} • ` : ""}{sport}
+        </div>
       </div>
       <a class="back" href="/favorites/">Favorites</a>
     </header>
@@ -105,23 +204,40 @@ const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
         {cards.map((c) => {
           const thumb = getThumb(c);
           const isFavorite = isFavPath(thumb);
+
+          const fileBase = basenameNoExt(thumb);
+          const playerName = parsePlayerNameFromFilename(fileBase);
+          const labels = parseLabelsFromFilename(fileBase);
+
+          // Keep existing href if you have it; otherwise just go to set page
           const href = c?.url ?? c?.href ?? c?.link ?? targetSetPath;
 
           return (
-            <a class={`card ${isFavorite ? "fav" : ""}`} href={href} title={c?.name ?? c?.title ?? ""}>
+            <a class={`card ${isFavorite ? "fav" : ""}`} href={href} title={playerName}>
               <div class="imgWrap">
-                {isFavorite && <span class="badge" aria-label="Favorite">★</span>}
+                {isFavorite && <span class="favBadge" aria-label="Favorite">★</span>}
                 {thumb ? (
-                  <img src={thumb} alt={c?.name ?? c?.title ?? "Card"} loading="lazy" />
+                  <img src={thumb} alt={playerName} loading="lazy" />
                 ) : (
                   <div class="missing">No image</div>
                 )}
               </div>
 
               <div class="meta">
-                <div class="name">{c?.name ?? c?.title ?? "Untitled"}</div>
-                {typeof c?.score === "number" ? (
-                  <div class="score">score {c.score}</div>
+                <div class="nameRow">
+                  <div class="name">{playerName}</div>
+                </div>
+
+                <div class="setRow">
+                  <span class="setText">{year ? `${year} ` : ""}{setName}</span>
+                </div>
+
+                {labels.length > 0 ? (
+                  <div class="labels">
+                    {labels.map((t) => (
+                      <span class="pill">{t}</span>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             </a>
@@ -173,7 +289,7 @@ const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
       .grid {
         padding: 16px;
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
         gap: 14px;
       }
 
@@ -207,30 +323,7 @@ const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
         opacity: 0.6;
       }
 
-      .meta {
-        padding: 10px 10px 12px;
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 10px;
-      }
-
-      .name {
-        font-size: 13px;
-        line-height: 1.2;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 100%;
-      }
-
-      .score {
-        font-size: 12px;
-        opacity: 0.7;
-        white-space: nowrap;
-      }
-
-      .badge {
+      .favBadge {
         position: absolute;
         top: 8px;
         left: 8px;
@@ -239,6 +332,45 @@ const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
         border-radius: 999px;
         background: rgba(0,0,0,.75);
         color: white;
+      }
+
+      .meta {
+        padding: 10px 10px 12px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .name {
+        font-size: 14px;
+        line-height: 1.2;
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setText {
+        font-size: 12px;
+        opacity: 0.75;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .labels {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 2px;
+      }
+
+      .pill {
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(0,0,0,.12);
+        background: rgba(0,0,0,.03);
+        white-space: nowrap;
       }
 
       .card.fav {

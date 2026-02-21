@@ -1,381 +1,603 @@
 ---
+import "../../../styles/global.css";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-// ✅ Favorite detection
-const isFavPath = (p = "") => /__fav__\.webp$/i.test(String(p));
-
-// Normalize a setPath-like value to "/sport/set/" shape
-function normSetPath(p) {
-  const s = String(p ?? "");
-  if (!s) return "";
-  const withLeading = s.startsWith("/") ? s : `/${s}`;
-  return withLeading.endsWith("/") ? withLeading : `${withLeading}/`;
+function niceName(slug: string) {
+  return slug
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Extract "/sport/set/" from a card object (defensive)
-function getSetPath(card) {
-  return normSetPath(card?.setPath ?? card?.set ?? card?.path ?? "");
+type MetaMap = Record<
+  string,
+  Partial<{
+    player: string;
+    team: string;
+    rc: boolean;
+    auto: boolean;
+    patch: boolean;
+    relic: boolean;
+    first: boolean; // 1st Bowman override if needed
+    numbered: string; // e.g. "01/50"
+    parallel: string; // e.g. "Tin Type"
+  }>
+>;
+
+function isImageFile(f: string) {
+  return /\.(webp|png|jpe?g|gif)$/i.test(f);
 }
 
-// Helper to get a usable thumbnail path from a card object
-function getThumb(card) {
-  return (
-    card?.thumb ??
-    card?.thumbnail ??
-    card?.image ??
-    card?.img ??
-    card?.src ??
-    card?.front ??
-    ""
-  );
-}
-
-function basenameNoExt(p) {
-  const s = String(p ?? "");
-  const base = s.split("/").pop() ?? "";
-  return base.replace(/\.webp$/i, "");
-}
-
-// Remove terminal markers like __front / __back / __fav__
-function stripTerminalMarkers(nameNoExt) {
-  return String(nameNoExt ?? "")
-    .replace(/__(front|back)$/, "")
-    .replace(/__fav__$/, "")
-    .replace(/__(front|back)__fav__$/, "")
-    .replace(/__fav__(__(front|back))?$/, "")
-    .trim();
-}
-
-function titleCase(s) {
-  return String(s ?? "")
-    .split(" ")
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
-
-// Turn "andrew-mccutchen" or "dylan-crews" or "dylan-crews_washington-nationals" into "Andrew McCutchen"
-// We only use the FIRST segment before "__" and (if it contains "_") take the part before "_"
-function parsePlayerNameFromFilename(filenameNoExt) {
-  const cleaned = stripTerminalMarkers(filenameNoExt);
-  const firstSeg = cleaned.split("__")[0] ?? "";
-  const namePart = firstSeg.split("_")[0] ?? firstSeg; // handles "name_team" style
-  const spaced = namePart.replace(/[-_]+/g, " ").trim();
-  return titleCase(spaced);
-}
-
-// Derive tags like RC / Auto / Patch / Numbered / Mini / Parallel / Foil from filename tokens
-function parseLabelsFromFilename(filenameNoExt) {
-  const cleaned = stripTerminalMarkers(filenameNoExt);
-  const parts = cleaned.split("__").map((x) => x.toLowerCase());
-
-  const labels = [];
-
-  const has = (k) => parts.includes(k);
-
-  if (has("rc")) labels.push("Rookie");
-  if (has("auto")) labels.push("Auto");
-  if (has("patch")) labels.push("Patch");
-  if (has("mini")) labels.push("Mini");
-
-  // Numbered: numbered-02of05, numbered-162of199, etc.
-  const numbered = parts.find((p) => p.startsWith("numbered-"));
-  if (numbered) {
-    const m = numbered.match(/^numbered-(\d+)of(\d+)$/i);
-    if (m) {
-      const a = String(parseInt(m[1], 10));
-      const b = String(parseInt(m[2], 10));
-      labels.push(`#’d ${a}/${b}`);
-    } else {
-      labels.push("Numbered");
-    }
-  }
-
-  // Parallel / Foil hints
-  const parallel = parts.find((p) => p.startsWith("parallel"));
-  if (parallel) {
-    // parallel, parallel-foil, parallel-blue, etc.
-    const pretty = parallel.replace(/^parallel-?/, "").replace(/-/g, " ").trim();
-    labels.push(pretty ? `Parallel (${titleCase(pretty)})` : "Parallel");
-  }
-  if (parts.includes("foil")) labels.push("Foil");
-
-  // Common cosmic insert IDs (et-16, sn-10, ub-6, pps-8, etc.)
-  const insertId = parts.find((p) => /^[a-z]{1,4}-\d{1,3}$/.test(p));
-  if (insertId) labels.push(insertId.toUpperCase());
-
-  // De-dupe while keeping order
-  return [...new Set(labels)];
-}
-
-// Parse year + set display from route param "2025-topps-allen-and-ginter"
-function parseYearAndSetDisplay(setSlug) {
-  const s = String(setSlug ?? "");
-  const m = s.match(/^(\d{4})-(.+)$/);
-  const year = m ? m[1] : "";
-  const rest = m ? m[2] : s;
-
-  // prettify: hyphens -> spaces, title case, fix a couple common words
-  let setName = rest.replace(/-/g, " ").trim();
-  setName = titleCase(setName);
-
-  // small cosmetic tweaks
-  setName = setName.replace(/\bAnd\b/g, "&");
-  setName = setName.replace(/\bMlb\b/g, "MLB");
-  setName = setName.replace(/\bPsa\b/g, "PSA");
-
-  return { year, setName };
-}
-
-// ✅ Required for static build dynamic routes
-export async function getStaticPaths() {
-  const goodCardsPath = path.join(process.cwd(), "public", "good-cards.json");
-
-  let all = [];
+async function dirExists(p: string) {
   try {
-    const raw = await fs.readFile(goodCardsPath, "utf-8");
-    const parsed = JSON.parse(raw);
-    all = Array.isArray(parsed) ? parsed : [];
+    const st = await fs.stat(p);
+    return st.isDirectory();
   } catch {
-    all = [];
+    return false;
+  }
+}
+
+// Use LOWERCASE in URLs (Cloudflare is case-sensitive)
+function toUrl(sportLower: string, set: string, sub: string | null, file: string) {
+  const mid = sub ? `/${sub}` : "";
+  return `/cards/${sportLower}/${set}${mid}/${file}`;
+}
+
+// Key used to pair front/back: strips extension + trailing __front/__back
+function cardKey(file: string) {
+  return file
+    .replace(/\.[^.]+$/, "")
+    .replace(/__front$/i, "")
+    .replace(/__back$/i, "");
+}
+
+// Normalize "02of05" => "02/05" and pad like "01/50"
+function normalizeNumbered(raw: string) {
+  const s = (raw ?? "").toString().trim();
+  if (!s) return "";
+
+  const slash = s.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (slash) {
+    const a = slash[1];
+    const b = slash[2];
+    const width = Math.max(2, b.length);
+    return `${a.padStart(width, "0")}/${b.padStart(width, "0")}`;
   }
 
-  // Unique setPaths
-  const setPaths = new Set();
-  for (const c of all) {
-    const sp = getSetPath(c);
-    if (sp) setPaths.add(sp);
+  const of = s.match(/^(\d+)\s*of\s*(\d+)$/i);
+  if (of) {
+    const a = of[1];
+    const b = of[2];
+    const width = Math.max(2, b.length);
+    return `${a.padStart(width, "0")}/${b.padStart(width, "0")}`;
   }
 
-  const paths = [];
-  for (const sp of setPaths) {
-    const parts = sp.split("/").filter(Boolean);
-    if (parts.length < 2) continue;
+  return s;
+}
 
-    const sport = parts[0];
-    const set = parts.slice(1).join("/");
+function inferFromFilename(filename: string, isBowmanSet: boolean) {
+  const base = filename.replace(/\.[^.]+$/, "");
+  const lower = base.toLowerCase();
 
-    paths.push({
-      params: { sport, set },
-      props: { allCards: all },
-    });
+  const hasToken = (t: string) =>
+    new RegExp(`(^|[^a-z0-9])${t}([^a-z0-9]|$)`, "i").test(lower);
+
+  const rc = hasToken("rc") || hasToken("rookie");
+  const auto = hasToken("auto") || hasToken("autograph") || hasToken("signature") || hasToken("sig");
+  const patch = hasToken("patch") || hasToken("jersey");
+  const relic = hasToken("relic");
+
+  const parallel =
+    hasToken("parallel") ||
+    hasToken("prizm") ||
+    hasToken("refractor") ||
+    hasToken("holo") ||
+    hasToken("foil") ||
+    hasToken("mosaic") ||
+    hasToken("scope") ||
+    hasToken("wave") ||
+    /tin[-\s]?type/i.test(lower);
+
+  // 1st Bowman — only matters on Bowman sets
+  const first =
+    isBowmanSet &&
+    (
+      hasToken("1st") ||
+      /(^|[^a-z0-9])1st-bowman([^a-z0-9]|$)/i.test(lower) ||
+      /(^|[^a-z0-9])bowman-1st([^a-z0-9]|$)/i.test(lower)
+    );
+
+  // numbered patterns
+  let numbered: string | null = null;
+  const m1 = lower.match(/numbered[-_]?(\d+)\s*of\s*(\d+)/i);
+  const m2 = lower.match(/numbered[-_]?(\d+)\s*\/\s*(\d+)/i);
+  const m3 = lower.match(/\b(\d+)\s*of\s*(\d+)\b/i);
+  const m4 = lower.match(/\b(\d+)\s*\/\s*(\d+)\b/i);
+
+  const pick = (m: RegExpMatchArray | null) => (m ? normalizeNumbered(`${m[1]}/${m[2]}`) : null);
+  numbered = pick(m1) ?? pick(m2) ?? pick(m3) ?? pick(m4);
+
+  // player/team inference for "__" naming
+  let player = "";
+  let team = "";
+
+  if (base.includes("__")) {
+    const segs = base.split("__").filter(Boolean);
+    player = niceName(segs[0] ?? base);
+
+    const tagLike = (s: string) =>
+      /^(rc|rookie|base|auto|patch|relic|insert|numbered|parallel|foil|holo|mosaic|scope|wave|tin[-\s]?type|1st|bowman)(-|$)/i.test(
+        s
+      );
+
+    if (segs.length >= 2 && !tagLike(segs[1])) team = niceName(segs[1]);
+  } else {
+    const parts = base.split(/[-_]+/g).filter(Boolean);
+    player = parts.length ? niceName(parts.slice(0, 2).join(" ")) : niceName(base);
+  }
+
+  return { player, team, rc, auto, patch, relic, first, numbered, parallel };
+}
+
+export async function getStaticPaths() {
+  const baseDir = path.join(process.cwd(), "public", "cards");
+
+  const sportEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
+  const sportFolders = sportEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+
+  const paths: { params: { sport: string; set: string } }[] = [];
+
+  for (const sportFolderName of sportFolders) {
+    const sportParam = sportFolderName.toLowerCase();
+    const sportDir = path.join(baseDir, sportFolderName);
+
+    const setEntries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
+    const sets = setEntries.filter((e) => e.isDirectory()).map((e) => e.name);
+
+    for (const set of sets) paths.push({ params: { sport: sportParam, set } });
   }
 
   return paths;
 }
 
-// Page params
-const { sport, set } = Astro.params;
-const targetSetPath = `/${sport}/${set}/`;
+const sport = (Astro.params.sport ?? "").toString().toLowerCase();
+const set = (Astro.params.set ?? "").toString();
+const isBowmanSet = set.toLowerCase().includes("bowman");
 
-const { year, setName } = parseYearAndSetDisplay(set);
+// Find actual on-disk sport folder casing
+const baseDir = path.join(process.cwd(), "public", "cards");
+const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
+const diskSportFolder =
+  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
 
-// Use props passed from getStaticPaths
-const allCards = Array.isArray(Astro.props?.allCards) ? Astro.props.allCards : [];
-const cards = allCards.filter((c) => getSetPath(c) === targetSetPath);
+const setDir = path.join(baseDir, diskSportFolder, set);
+
+// Prefer these subfolders if present
+const frontWebpDir = path.join(setDir, "front-webp");
+const backWebpDir = path.join(setDir, "back-webp");
+const thumbsDir = path.join(setDir, "thumbs");
+
+const hasFrontWebp = await dirExists(frontWebpDir);
+const hasBackWebp = await dirExists(backWebpDir);
+const hasThumbs = await dirExists(thumbsDir);
+
+// Full-size source directory (lightbox)
+const fullDir = hasFrontWebp ? frontWebpDir : setDir;
+const fullSub = hasFrontWebp ? "front-webp" : null;
+
+// Thumb source directory (grid)
+const thumbDir = hasThumbs ? thumbsDir : fullDir;
+const thumbSub = hasThumbs ? "thumbs" : fullSub;
+
+// Read fronts
+const fullFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
+fullFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+// Read thumbs
+const thumbFiles = (await fs.readdir(thumbDir).catch(() => [])).filter(isImageFile);
+thumbFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
+
+const thumbByBase = new Map<string, string>();
+for (const f of thumbFiles) thumbByBase.set(f.replace(/\.[^.]+$/, ""), f);
+
+// Read backs (optional) and map to front keys
+const backByKey = new Map<string, string>();
+if (hasBackWebp) {
+  const backFiles = (await fs.readdir(backWebpDir).catch(() => [])).filter(isImageFile);
+  for (const f of backFiles) backByKey.set(cardKey(f), f);
+}
+
+// optional meta.json at set root
+let meta: MetaMap = {};
+try {
+  const metaPath = path.join(setDir, "meta.json");
+  const raw = await fs.readFile(metaPath, "utf8");
+  meta = JSON.parse(raw);
+} catch {}
+
+const cards = fullFiles.map((frontImg) => {
+  const inferred = inferFromFilename(frontImg, isBowmanSet);
+  const m = meta[frontImg] ?? {};
+
+  const player = (m.player ?? inferred.player).toString();
+  const team = (m.team ?? inferred.team ?? "").toString();
+
+  const rc = Boolean(m.rc ?? inferred.rc);
+  const auto = Boolean(m.auto ?? inferred.auto);
+  const patch = Boolean(m.patch ?? inferred.patch);
+  const relic = Boolean(m.relic ?? inferred.relic);
+  const first = Boolean(m.first ?? inferred.first);
+
+  const numberedRaw = (m.numbered ?? inferred.numbered ?? "").toString();
+  const numbered = normalizeNumbered(numberedRaw);
+
+  const parallelText = (m.parallel ?? "").toString();
+  const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
+
+  const tags = [
+    rc ? "rc" : "",
+    auto ? "auto" : "",
+    patch ? "patch" : "",
+    relic ? "relic" : "",
+    numbered ? "numbered" : "",
+    parallel ? "parallel" : "",
+    isBowmanSet && first ? "first" : "",
+  ].filter(Boolean);
+
+  const key = cardKey(frontImg);
+  const backImg = hasBackWebp ? (backByKey.get(key) ?? null) : null;
+
+  const base = frontImg.replace(/\.[^.]+$/, "");
+  const thumbName = thumbByBase.get(base) ?? frontImg;
+
+  return {
+    img: frontImg,
+    urlFront: toUrl(sport, set, fullSub, frontImg),
+    urlBack: backImg ? toUrl(sport, set, "back-webp", backImg) : null,
+    hasBack: Boolean(backImg),
+    urlThumb: toUrl(sport, set, thumbSub, thumbName),
+
+    player,
+    team,
+    rc,
+    auto,
+    patch,
+    relic,
+    first,
+    numbered,
+    parallel,
+    parallelText,
+    tags,
+  };
+});
+
+const title = `${niceName(sport)} • ${niceName(set)}`;
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>{year ? `${year} ` : ""}{setName} • {sport}</title>
+    <title>{title}</title>
   </head>
 
-  <body>
-    <header class="top">
-      <a class="back" href="/">Home</a>
-      <div class="title">
-        <h1>{setName}</h1>
-        <div class="sub">
-          {year ? `${year} • ` : ""}{sport}
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <div class="flex items-center justify-between gap-4">
+        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">
+          ← Back to {niceName(sport)} sets
+        </a>
+
+        <div class="flex items-center gap-3">
+          <img
+            src="/brand/bradyrip.png"
+            alt="BradyRip"
+            class="h-8 w-8 rounded-full ring-1 ring-zinc-800 bg-zinc-900/40 object-contain"
+            loading="lazy"
+            onerror="this.style.display='none';"
+          />
+          <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">Home</a>
         </div>
       </div>
-      <a class="back" href="/favorites/">Favorites</a>
-    </header>
 
-    {cards.length === 0 ? (
-      <main class="empty">
-        <p>No cards found for <code>{targetSetPath}</code>.</p>
-      </main>
-    ) : (
-      <main class="grid">
-        {cards.map((c) => {
-          const thumb = getThumb(c);
-          const isFavorite = isFavPath(thumb);
+      <div class="mt-6">
+        <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
+        <p class="mt-2 text-zinc-300">
+          {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
+        </p>
+      </div>
 
-          const fileBase = basenameNoExt(thumb);
-          const playerName = parsePlayerNameFromFilename(fileBase);
-          const labels = parseLabelsFromFilename(fileBase);
+      <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex-1">
+          <input
+            id="q"
+            type="search"
+            placeholder="Search player / team / filename…"
+            class="w-full rounded-xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600"
+          />
+        </div>
 
-          // Keep existing href if you have it; otherwise just go to set page
-          const href = c?.url ?? c?.href ?? c?.link ?? targetSetPath;
+        <div class="flex flex-wrap gap-2">
+          <button class="chip is-active" type="button" data-filter="all">All</button>
+          <button class="chip" type="button" data-filter="rc">RC</button>
+          <button class="chip" type="button" data-filter="auto">Auto</button>
+          <button class="chip" type="button" data-filter="patch">Patch</button>
+          <button class="chip" type="button" data-filter="relic">Relic</button>
+          {isBowmanSet ? <button class="chip" type="button" data-filter="first">1st Bowman</button> : null}
+          <button class="chip" type="button" data-filter="numbered">#’d</button>
+          <button class="chip" type="button" data-filter="parallel">Parallel</button>
+        </div>
+      </div>
 
-          return (
-            <a class={`card ${isFavorite ? "fav" : ""}`} href={href} title={playerName}>
-              <div class="imgWrap">
-                {isFavorite && <span class="favBadge" aria-label="Favorite">★</span>}
-                {thumb ? (
-                  <img src={thumb} alt={playerName} loading="lazy" />
-                ) : (
-                  <div class="missing">No image</div>
-                )}
-              </div>
-
-              <div class="meta">
-                <div class="nameRow">
-                  <div class="name">{playerName}</div>
+      {cards.length === 0 ? (
+        <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
+          No images found. Put card images in:
+          <div class="mt-2 text-sm text-zinc-400">
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{sport}/{set}/front-webp/
+            </code>
+            {" "}and thumbs in{" "}
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{sport}/{set}/thumbs/
+            </code>
+            {" "}and optional backs in{" "}
+            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
+              public/cards/{sport}/{set}/back-webp/
+            </code>
+          </div>
+        </div>
+      ) : (
+        <>
+          <section class="mt-6 flex flex-wrap gap-3" id="grid">
+            {cards.map((c, i) => (
+              <button
+                type="button"
+                class="tile group w-[120px] sm:w-[135px] md:w-[150px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
+                data-open={i}
+                data-q={`${c.player} ${c.team} ${c.img}`.toLowerCase()}
+                data-tags={c.tags.join(",")}
+                aria-label={`Open ${c.player}`}
+              >
+                <div class="aspect-[3/4] bg-zinc-900/25">
+                  <img
+                    src={c.urlThumb}
+                    alt={c.img}
+                    loading="lazy"
+                    class="h-full w-full object-contain p-1.5 group-hover:scale-[1.02] transition"
+                  />
                 </div>
 
-                <div class="setRow">
-                  <span class="setText">{year ? `${year} ` : ""}{setName}</span>
-                </div>
+                <div class="px-2 py-2">
+                  <div class="text-xs font-medium text-zinc-200 truncate">{c.player}</div>
+                  {c.team ? <div class="text-[10px] text-zinc-400 truncate">{c.team}</div> : null}
 
-                {labels.length > 0 ? (
-                  <div class="labels">
-                    {labels.map((t) => (
-                      <span class="pill">{t}</span>
-                    ))}
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    {c.rc && <span class="pill">RC</span>}
+                    {c.auto && <span class="pill">AUTO</span>}
+                    {c.patch && <span class="pill">PATCH</span>}
+                    {c.relic && <span class="pill">RELIC</span>}
+                    {isBowmanSet && c.first && <span class="pill">1ST</span>}
+                    {c.numbered && <span class="pill">{c.numbered}</span>}
+                    {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
+                    {c.hasBack && <span class="pill">2-SIDED</span>}
                   </div>
-                ) : null}
+                </div>
+              </button>
+            ))}
+          </section>
+
+          <div
+            id="lightbox"
+            class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-4"
+            aria-hidden="true"
+          >
+            <div class="absolute inset-0" data-close></div>
+
+            <div class="relative w-full max-w-4xl">
+              <div class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+                  <div class="text-sm text-zinc-300 truncate" id="lb-label"></div>
+                  <button
+                    type="button"
+                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
+                    data-close
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div class="bg-black/30">
+                  <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
+                </div>
+
+                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
+                  <button
+                    type="button"
+                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
+                    id="lb-prev"
+                  >
+                    ← Prev
+                  </button>
+
+                  <button
+                    type="button"
+                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
+                    id="lb-flip"
+                  >
+                    View Back
+                  </button>
+
+                  <div class="text-xs text-zinc-400" id="lb-count"></div>
+
+                  <button
+                    type="button"
+                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
+                    id="lb-next"
+                  >
+                    Next →
+                  </button>
+                </div>
               </div>
-            </a>
-          );
-        })}
-      </main>
-    )}
+            </div>
+          </div>
 
-    <style>
-      :global(body) {
-        margin: 0;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      }
+          <style>
+            .chip{
+              border-radius:999px;
+              padding:8px 10px;
+              font-size:12px;
+              line-height:1;
+              background:rgba(9,9,11,1);
+              border:1px solid rgba(39,39,42,1);
+              color:rgba(212,212,216,1);
+              transition:.15s ease;
+              white-space:nowrap;
+            }
+            .chip:hover{border-color:rgba(82,82,91,1)}
+            .chip.is-active{
+              background:rgba(24,24,27,.85);
+              border-color:rgba(82,82,91,1);
+              color:#fff;
+            }
+            .pill{
+              font-size:10px;
+              padding:2px 6px;
+              border-radius:999px;
+              border:1px solid rgba(39,39,42,1);
+              background:rgba(24,24,27,.6);
+              color:rgba(212,212,216,1);
+            }
+          </style>
 
-      .top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 14px 16px;
-        border-bottom: 1px solid rgba(0,0,0,.08);
-        position: sticky;
-        top: 0;
-        background: white;
-        z-index: 10;
-      }
+          <script define:vars={{ cards }}>
+            const fronts = cards.map((c) => c.urlFront);
+            const backs  = cards.map((c) => c.urlBack);
+            const labels = cards.map((c) => ""); // keep blank (no filename at top)
 
-      .title h1 {
-        margin: 0;
-        font-size: 18px;
-        line-height: 1.2;
-        text-align: center;
-      }
+            const lb = document.getElementById("lightbox");
+            const lbImg = document.getElementById("lb-img");
+            const lbLabel = document.getElementById("lb-label");
+            const lbCount = document.getElementById("lb-count");
+            const prevBtn = document.getElementById("lb-prev");
+            const nextBtn = document.getElementById("lb-next");
+            const flipBtn = document.getElementById("lb-flip");
 
-      .sub {
-        text-align: center;
-        font-size: 12px;
-        opacity: 0.7;
-      }
+            const q = document.getElementById("q");
+            const grid = document.getElementById("grid");
+            const chips = Array.from(document.querySelectorAll(".chip"));
 
-      .back {
-        text-decoration: none;
-        font-size: 14px;
-      }
+            let idx = 0;
+            let side = "front";
+            let active = "all";
 
-      .empty {
-        padding: 24px 16px;
-      }
+            function renderLightbox() {
+              const backUrl = backs[idx];
+              const showBack = side === "back" && backUrl;
+              const url = showBack ? backUrl : fronts[idx];
 
-      .grid {
-        padding: 16px;
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-        gap: 14px;
-      }
+              lbImg.src = url;
+              lbImg.alt = labels[idx];
 
-      .card {
-        display: block;
-        text-decoration: none;
-        color: inherit;
-        border: 1px solid rgba(0,0,0,.10);
-        border-radius: 10px;
-        overflow: hidden;
-        background: white;
-      }
+              lbLabel.textContent = ""; // no filename/label
+              lbCount.textContent = `${idx + 1} / ${fronts.length}`;
 
-      .imgWrap {
-        position: relative;
-        aspect-ratio: 2.5 / 3.5;
-        display: grid;
-        place-items: center;
-        background: rgba(0,0,0,.03);
-      }
+              if (flipBtn) {
+                const hasBack = !!backUrl;
+                flipBtn.disabled = !hasBack;
+                flipBtn.style.opacity = hasBack ? "1" : "0.35";
+                flipBtn.textContent = hasBack ? (showBack ? "View Front" : "View Back") : "No Back";
+              }
+            }
 
-      .imgWrap img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-      }
+            function openLightbox(i) {
+              idx = (i + fronts.length) % fronts.length;
+              side = "front";
+              renderLightbox();
+              lb.classList.remove("hidden");
+              lb.classList.add("flex");
+              lb.setAttribute("aria-hidden", "false");
+            }
 
-      .missing {
-        font-size: 12px;
-        opacity: 0.6;
-      }
+            function closeLightbox() {
+              lb.classList.add("hidden");
+              lb.classList.remove("flex");
+              lb.setAttribute("aria-hidden", "true");
+              lbImg.src = "";
+            }
 
-      .favBadge {
-        position: absolute;
-        top: 8px;
-        left: 8px;
-        font-size: 14px;
-        padding: 4px 7px;
-        border-radius: 999px;
-        background: rgba(0,0,0,.75);
-        color: white;
-      }
+            function applyFilter() {
+              const term = (q?.value || "").toLowerCase().trim();
+              const tiles = Array.from(grid?.querySelectorAll(".tile") || []);
 
-      .meta {
-        padding: 10px 10px 12px;
-        display: grid;
-        gap: 6px;
-      }
+              tiles.forEach((el) => {
+                const hay = (el.getAttribute("data-q") || "");
+                const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
 
-      .name {
-        font-size: 14px;
-        line-height: 1.2;
-        font-weight: 600;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
+                const matchesText = !term || hay.includes(term);
+                const matchesTag = active === "all" || tags.includes(active);
 
-      .setText {
-        font-size: 12px;
-        opacity: 0.75;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
+                el.style.display = (matchesText && matchesTag) ? "" : "none";
+              });
+            }
 
-      .labels {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 2px;
-      }
+            document.querySelectorAll("[data-open]").forEach((btn) => {
+              btn.addEventListener("click", () => openLightbox(parseInt(btn.dataset.open, 10)));
+            });
 
-      .pill {
-        font-size: 11px;
-        padding: 3px 8px;
-        border-radius: 999px;
-        border: 1px solid rgba(0,0,0,.12);
-        background: rgba(0,0,0,.03);
-        white-space: nowrap;
-      }
+            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", closeLightbox));
 
-      .card.fav {
-        border-color: rgba(0,0,0,.25);
-      }
-    </style>
+            prevBtn.addEventListener("click", () => {
+              idx = (idx - 1 + fronts.length) % fronts.length;
+              side = "front";
+              renderLightbox();
+            });
+            nextBtn.addEventListener("click", () => {
+              idx = (idx + 1) % fronts.length;
+              side = "front";
+              renderLightbox();
+            });
+
+            flipBtn?.addEventListener("click", () => {
+              if (!backs[idx]) return;
+              side = (side === "front") ? "back" : "front";
+              renderLightbox();
+            });
+
+            q?.addEventListener("input", applyFilter);
+
+            chips.forEach((btn) => {
+              btn.addEventListener("click", () => {
+                chips.forEach((b) => b.classList.remove("is-active"));
+                btn.classList.add("is-active");
+                active = btn.getAttribute("data-filter") || "all";
+                applyFilter();
+              });
+            });
+
+            window.addEventListener("keydown", (e) => {
+              if (!lb || lb.classList.contains("hidden")) return;
+              if (e.key === "Escape") closeLightbox();
+              if (e.key === "ArrowLeft") {
+                idx = (idx - 1 + fronts.length) % fronts.length;
+                side = "front";
+                renderLightbox();
+              }
+              if (e.key === "ArrowRight") {
+                idx = (idx + 1) % fronts.length;
+                side = "front";
+                renderLightbox();
+              }
+              if (e.key.toLowerCase() === "b") {
+                if (!backs[idx]) return;
+                side = (side === "front") ? "back" : "front";
+                renderLightbox();
+              }
+            });
+          </script>
+        </>
+      )}
+    </main>
   </body>
 </html>

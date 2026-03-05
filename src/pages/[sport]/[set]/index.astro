@@ -1,602 +1,78 @@
 ---
-import "../../../styles/global.css";
-import fs from "node:fs/promises";
-import path from "node:path";
-
-function niceName(slug: string) {
-  return slug
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-type MetaMap = Record<
-  string,
-  Partial<{
-    player: string;
-    team: string;
-    rc: boolean;
-    auto: boolean;
-    patch: boolean;
-    relic: boolean;
-    first: boolean; // 1st Bowman override if needed
-    numbered: string; // e.g. "01/50"
-    parallel: string; // e.g. "Tin Type"
-  }>
->;
-
-function isImageFile(f: string) {
-  return /\.(webp|png|jpe?g|gif)$/i.test(f);
-}
-
-async function dirExists(p: string) {
-  try {
-    const st = await fs.stat(p);
-    return st.isDirectory();
-  } catch {
-    return false;
-  }
-}
-
-// Use LOWERCASE in URLs (Cloudflare is case-sensitive)
-function toUrl(sportLower: string, set: string, sub: string | null, file: string) {
-  const mid = sub ? `/${sub}` : "";
-  return `/cards/${sportLower}/${set}${mid}/${file}`;
-}
-
-// Key used to pair front/back: strips extension + trailing __front/__back
-function cardKey(file: string) {
-  return file
-    .replace(/\.[^.]+$/, "")
-    .replace(/__front$/i, "")
-    .replace(/__back$/i, "");
-}
-
-// Normalize "02of05" => "02/05" and pad like "01/50"
-function normalizeNumbered(raw: string) {
-  const s = (raw ?? "").toString().trim();
-  if (!s) return "";
-
-  const slash = s.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if (slash) {
-    const a = slash[1];
-    const b = slash[2];
-    const width = Math.max(2, b.length);
-    return `${a.padStart(width, "0")}/${b.padStart(width, "0")}`;
-  }
-
-  const of = s.match(/^(\d+)\s*of\s*(\d+)$/i);
-  if (of) {
-    const a = of[1];
-    const b = of[2];
-    const width = Math.max(2, b.length);
-    return `${a.padStart(width, "0")}/${b.padStart(width, "0")}`;
-  }
-
-  return s;
-}
-
-function inferFromFilename(filename: string, isBowmanSet: boolean) {
-  const base = filename.replace(/\.[^.]+$/, "");
-  const lower = base.toLowerCase();
-
-  const hasToken = (t: string) =>
-    new RegExp(`(^|[^a-z0-9])${t}([^a-z0-9]|$)`, "i").test(lower);
-
-  const rc = hasToken("rc") || hasToken("rookie");
-  const auto = hasToken("auto") || hasToken("autograph") || hasToken("signature") || hasToken("sig");
-  const patch = hasToken("patch") || hasToken("jersey");
-  const relic = hasToken("relic");
-
-  const parallel =
-    hasToken("parallel") ||
-    hasToken("prizm") ||
-    hasToken("refractor") ||
-    hasToken("holo") ||
-    hasToken("foil") ||
-    hasToken("mosaic") ||
-    hasToken("scope") ||
-    hasToken("wave") ||
-    /tin[-\s]?type/i.test(lower);
-
-  // 1st Bowman — only matters on Bowman sets
-  const first =
-    isBowmanSet &&
-    (
-      hasToken("1st") ||
-      /(^|[^a-z0-9])1st-bowman([^a-z0-9]|$)/i.test(lower) ||
-      /(^|[^a-z0-9])bowman-1st([^a-z0-9]|$)/i.test(lower)
-    );
-
-  // numbered patterns
-  let numbered: string | null = null;
-  const m1 = lower.match(/numbered[-_]?(\d+)\s*of\s*(\d+)/i);
-  const m2 = lower.match(/numbered[-_]?(\d+)\s*\/\s*(\d+)/i);
-  const m3 = lower.match(/\b(\d+)\s*of\s*(\d+)\b/i);
-  const m4 = lower.match(/\b(\d+)\s*\/\s*(\d+)\b/i);
-
-  const pick = (m: RegExpMatchArray | null) => (m ? normalizeNumbered(`${m[1]}/${m[2]}`) : null);
-  numbered = pick(m1) ?? pick(m2) ?? pick(m3) ?? pick(m4);
-
-  // player/team inference for "__" naming
-  let player = "";
-  let team = "";
-
-  if (base.includes("__")) {
-    const segs = base.split("__").filter(Boolean);
-    player = niceName(segs[0] ?? base);
-
-    const tagLike = (s: string) =>
-      /^(rc|rookie|base|auto|patch|relic|insert|numbered|parallel|foil|holo|mosaic|scope|wave|tin[-\s]?type|1st|bowman)(-|$)/i.test(
-        s
-      );
-
-    if (segs.length >= 2 && !tagLike(segs[1])) team = niceName(segs[1]);
-  } else {
-    const parts = base.split(/[-_]+/g).filter(Boolean);
-    player = parts.length ? niceName(parts.slice(0, 2).join(" ")) : niceName(base);
-  }
-
-  return { player, team, rc, auto, patch, relic, first, numbered, parallel };
-}
+import { loadSetsManifest } from "../../../lib/sets";
 
 export async function getStaticPaths() {
-  const baseDir = path.join(process.cwd(), "public", "cards");
-
-  const sportEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
-  const sportFolders = sportEntries.filter((e) => e.isDirectory()).map((e) => e.name);
-
+  const { manifest } = loadSetsManifest();
   const paths: { params: { sport: string; set: string } }[] = [];
 
-  for (const sportFolderName of sportFolders) {
-    const sportParam = sportFolderName.toLowerCase();
-    const sportDir = path.join(baseDir, sportFolderName);
-
-    const setEntries = await fs.readdir(sportDir, { withFileTypes: true }).catch(() => []);
-    const sets = setEntries.filter((e) => e.isDirectory()).map((e) => e.name);
-
-    for (const set of sets) paths.push({ params: { sport: sportParam, set } });
+  for (const sport of Object.keys(manifest)) {
+    for (const set of Object.keys(manifest[sport] ?? {})) {
+      paths.push({ params: { sport, set } });
+    }
   }
 
   return paths;
 }
 
-const sport = (Astro.params.sport ?? "").toString().toLowerCase();
-const set = (Astro.params.set ?? "").toString();
-const isBowmanSet = set.toLowerCase().includes("bowman");
+const { sport, set } = Astro.params;
+const { manifest } = loadSetsManifest();
 
-// Find actual on-disk sport folder casing
-const baseDir = path.join(process.cwd(), "public", "cards");
-const baseEntries = await fs.readdir(baseDir, { withFileTypes: true }).catch(() => []);
-const diskSportFolder =
-  baseEntries.find((e) => e.isDirectory() && e.name.toLowerCase() === sport)?.name ?? sport;
-
-const setDir = path.join(baseDir, diskSportFolder, set);
-
-// Prefer these subfolders if present
-const frontWebpDir = path.join(setDir, "front-webp");
-const backWebpDir = path.join(setDir, "back-webp");
-const thumbsDir = path.join(setDir, "thumbs");
-
-const hasFrontWebp = await dirExists(frontWebpDir);
-const hasBackWebp = await dirExists(backWebpDir);
-const hasThumbs = await dirExists(thumbsDir);
-
-// Full-size source directory (lightbox)
-const fullDir = hasFrontWebp ? frontWebpDir : setDir;
-const fullSub = hasFrontWebp ? "front-webp" : null;
-
-// Thumb source directory (grid)
-const thumbDir = hasThumbs ? thumbsDir : fullDir;
-const thumbSub = hasThumbs ? "thumbs" : fullSub;
-
-// Read fronts
-const fullFiles = (await fs.readdir(fullDir).catch(() => [])).filter(isImageFile);
-fullFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
-
-// Read thumbs
-const thumbFiles = (await fs.readdir(thumbDir).catch(() => [])).filter(isImageFile);
-thumbFiles.sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" }));
-
-const thumbByBase = new Map<string, string>();
-for (const f of thumbFiles) thumbByBase.set(f.replace(/\.[^.]+$/, ""), f);
-
-// Read backs (optional) and map to front keys
-const backByKey = new Map<string, string>();
-if (hasBackWebp) {
-  const backFiles = (await fs.readdir(backWebpDir).catch(() => [])).filter(isImageFile);
-  for (const f of backFiles) backByKey.set(cardKey(f), f);
-}
-
-// optional meta.json at set root
-let meta: MetaMap = {};
-try {
-  const metaPath = path.join(setDir, "meta.json");
-  const raw = await fs.readFile(metaPath, "utf8");
-  meta = JSON.parse(raw);
-} catch {}
-
-const cards = fullFiles.map((frontImg) => {
-  const inferred = inferFromFilename(frontImg, isBowmanSet);
-  const m = meta[frontImg] ?? {};
-
-  const player = (m.player ?? inferred.player).toString();
-  const team = (m.team ?? inferred.team ?? "").toString();
-
-  const rc = Boolean(m.rc ?? inferred.rc);
-  const auto = Boolean(m.auto ?? inferred.auto);
-  const patch = Boolean(m.patch ?? inferred.patch);
-  const relic = Boolean(m.relic ?? inferred.relic);
-  const first = Boolean(m.first ?? inferred.first);
-
-  const numberedRaw = (m.numbered ?? inferred.numbered ?? "").toString();
-  const numbered = normalizeNumbered(numberedRaw);
-
-  const parallelText = (m.parallel ?? "").toString();
-  const parallel = Boolean(parallelText) || Boolean(inferred.parallel);
-
-  const tags = [
-    rc ? "rc" : "",
-    auto ? "auto" : "",
-    patch ? "patch" : "",
-    relic ? "relic" : "",
-    numbered ? "numbered" : "",
-    parallel ? "parallel" : "",
-    isBowmanSet && first ? "first" : "",
-  ].filter(Boolean);
-
-  const key = cardKey(frontImg);
-  const backImg = hasBackWebp ? (backByKey.get(key) ?? null) : null;
-
-  const base = frontImg.replace(/\.[^.]+$/, "");
-  const thumbName = thumbByBase.get(base) ?? frontImg;
-
-  return {
-    img: frontImg,
-    urlFront: toUrl(sport, set, fullSub, frontImg),
-    urlBack: backImg ? toUrl(sport, set, "back-webp", backImg) : null,
-    hasBack: Boolean(backImg),
-    urlThumb: toUrl(sport, set, thumbSub, thumbName),
-
-    player,
-    team,
-    rc,
-    auto,
-    patch,
-    relic,
-    first,
-    numbered,
-    parallel,
-    parallelText,
-    tags,
-  };
-});
-
-const title = `${niceName(sport)} • ${niceName(set)}`;
+const images = manifest[sport]?.[set] ?? [];
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>{title}</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>{set} • {sport} • Card Pictures</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; }
+      header { padding: 16px 20px; border-bottom: 1px solid #e5e5e5; }
+      main { padding: 20px; max-width: 1200px; margin: 0 auto; }
+      a { color: inherit; }
+      .crumbs { font-size: 13px; color: #555; margin-bottom: 10px; }
+      .meta { color: #666; font-size: 12px; margin-top: 6px; }
+      .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+      .thumb {
+        display: block;
+        border: 1px solid #e5e5e5;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #f6f6f6;
+        text-decoration: none;
+      }
+      .thumb:hover { border-color: #bbb; }
+      img { width: 100%; height: 260px; object-fit: cover; display:block; }
+      .empty { padding: 16px; border: 1px dashed #ccc; border-radius: 10px; color: #555; }
+    </style>
   </head>
-
-  <body class="min-h-screen bg-zinc-950 text-zinc-100">
-    <main class="mx-auto max-w-6xl px-4 py-10">
-      <div class="flex items-center justify-between gap-4">
-        <a href={`/${sport}/`} class="text-sm text-zinc-400 hover:text-zinc-200">
-          ← Back to {niceName(sport)} sets
-        </a>
-
-        <div class="flex items-center gap-3">
-          <img
-            src="/brand/bradyrip.png"
-            alt="BradyRip"
-            class="h-8 w-8 rounded-full ring-1 ring-zinc-800 bg-zinc-900/40 object-contain"
-            loading="lazy"
-            onerror="this.style.display='none';"
-          />
-          <a href="/" class="text-sm text-zinc-400 hover:text-zinc-200">Home</a>
+  <body>
+    <header>
+      <div style="max-width:1200px;margin:0 auto;">
+        <div class="crumbs">
+          <a href="/">Home</a> / <a href={`/${sport}/`} style="text-transform:capitalize;">{sport}</a> / <span>{set}</span>
         </div>
+        <h1 style="margin:0;font-size:22px;">{set}</h1>
+        <div class="meta">{images.length} image{images.length === 1 ? "" : "s"}</div>
       </div>
+    </header>
 
-      <div class="mt-6">
-        <h1 class="text-3xl font-semibold tracking-tight">{niceName(set)}</h1>
-        <p class="mt-2 text-zinc-300">
-          {niceName(sport)} • {cards.length} card{cards.length === 1 ? "" : "s"}
-        </p>
-      </div>
-
-      <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex-1">
-          <input
-            id="q"
-            type="search"
-            placeholder="Search player / team / filename…"
-            class="w-full rounded-xl bg-zinc-950 ring-1 ring-zinc-800 px-4 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600"
-          />
-        </div>
-
-        <div class="flex flex-wrap gap-2">
-          <button class="chip is-active" type="button" data-filter="all">All</button>
-          <button class="chip" type="button" data-filter="rc">RC</button>
-          <button class="chip" type="button" data-filter="auto">Auto</button>
-          <button class="chip" type="button" data-filter="patch">Patch</button>
-          <button class="chip" type="button" data-filter="relic">Relic</button>
-          {isBowmanSet ? <button class="chip" type="button" data-filter="first">1st Bowman</button> : null}
-          <button class="chip" type="button" data-filter="numbered">#’d</button>
-          <button class="chip" type="button" data-filter="parallel">Parallel</button>
-        </div>
-      </div>
-
-      {cards.length === 0 ? (
-        <div class="mt-6 rounded-2xl ring-1 ring-zinc-800 p-6 text-zinc-300">
-          No images found. Put card images in:
-          <div class="mt-2 text-sm text-zinc-400">
-            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-              public/cards/{sport}/{set}/front-webp/
-            </code>
-            {" "}and thumbs in{" "}
-            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-              public/cards/{sport}/{set}/thumbs/
-            </code>
-            {" "}and optional backs in{" "}
-            <code class="rounded bg-zinc-900 px-2 py-1 ring-1 ring-zinc-800">
-              public/cards/{sport}/{set}/back-webp/
-            </code>
-          </div>
-        </div>
+    <main>
+      {images.length === 0 ? (
+        <div class="empty">No images found for this set in <code>thumbs/</code>.</div>
       ) : (
-        <>
-          <section class="mt-6 flex flex-wrap gap-3" id="grid">
-            {cards.map((c, i) => (
-              <button
-                type="button"
-                class="tile group w-[120px] sm:w-[135px] md:w-[150px] rounded-xl ring-1 ring-zinc-800 bg-zinc-950 overflow-hidden hover:ring-zinc-600 transition"
-                data-open={i}
-                data-q={`${c.player} ${c.team} ${c.img}`.toLowerCase()}
-                data-tags={c.tags.join(",")}
-                aria-label={`Open ${c.player}`}
-              >
-                <div class="aspect-[3/4] bg-zinc-900/25">
-                  <img
-                    src={c.urlThumb}
-                    alt={c.img}
-                    loading="lazy"
-                    class="h-full w-full object-contain p-1.5 group-hover:scale-[1.02] transition"
-                  />
-                </div>
-
-                <div class="px-2 py-2">
-                  <div class="text-xs font-medium text-zinc-200 truncate">{c.player}</div>
-                  {c.team ? <div class="text-[10px] text-zinc-400 truncate">{c.team}</div> : null}
-
-                  <div class="mt-1 flex flex-wrap gap-1">
-                    {c.rc && <span class="pill">RC</span>}
-                    {c.auto && <span class="pill">AUTO</span>}
-                    {c.patch && <span class="pill">PATCH</span>}
-                    {c.relic && <span class="pill">RELIC</span>}
-                    {isBowmanSet && c.first && <span class="pill">1ST</span>}
-                    {c.numbered && <span class="pill">{c.numbered}</span>}
-                    {c.parallel && <span class="pill">{c.parallelText ? c.parallelText : "PAR"}</span>}
-                    {c.hasBack && <span class="pill">2-SIDED</span>}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </section>
-
-          <div
-            id="lightbox"
-            class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 p-4"
-            aria-hidden="true"
-          >
-            <div class="absolute inset-0" data-close></div>
-
-            <div class="relative w-full max-w-4xl">
-              <div class="rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 overflow-hidden">
-                <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-                  <div class="text-sm text-zinc-300 truncate" id="lb-label"></div>
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    data-close
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <div class="bg-black/30">
-                  <img id="lb-img" src="" alt="" class="w-full max-h-[80vh] object-contain" />
-                </div>
-
-                <div class="flex items-center justify-between px-4 py-3 border-t border-zinc-800">
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    id="lb-prev"
-                  >
-                    ← Prev
-                  </button>
-
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    id="lb-flip"
-                  >
-                    View Back
-                  </button>
-
-                  <div class="text-xs text-zinc-400" id="lb-count"></div>
-
-                  <button
-                    type="button"
-                    class="text-sm text-zinc-300 hover:text-white rounded-lg px-3 py-1.5 ring-1 ring-zinc-700/70 hover:ring-zinc-500"
-                    id="lb-next"
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <style>
-            .chip{
-              border-radius:999px;
-              padding:8px 10px;
-              font-size:12px;
-              line-height:1;
-              background:rgba(9,9,11,1);
-              border:1px solid rgba(39,39,42,1);
-              color:rgba(212,212,216,1);
-              transition:.15s ease;
-              white-space:nowrap;
-            }
-            .chip:hover{border-color:rgba(82,82,91,1)}
-            .chip.is-active{
-              background:rgba(24,24,27,.85);
-              border-color:rgba(82,82,91,1);
-              color:#fff;
-            }
-            .pill{
-              font-size:10px;
-              padding:2px 6px;
-              border-radius:999px;
-              border:1px solid rgba(39,39,42,1);
-              background:rgba(24,24,27,.6);
-              color:rgba(212,212,216,1);
-            }
-          </style>
-
-          <script define:vars={{ cards }}>
-            const fronts = cards.map((c) => c.urlFront);
-            const backs  = cards.map((c) => c.urlBack);
-            const labels = cards.map((c) => ""); // keep blank (no filename at top)
-
-            const lb = document.getElementById("lightbox");
-            const lbImg = document.getElementById("lb-img");
-            const lbLabel = document.getElementById("lb-label");
-            const lbCount = document.getElementById("lb-count");
-            const prevBtn = document.getElementById("lb-prev");
-            const nextBtn = document.getElementById("lb-next");
-            const flipBtn = document.getElementById("lb-flip");
-
-            const q = document.getElementById("q");
-            const grid = document.getElementById("grid");
-            const chips = Array.from(document.querySelectorAll(".chip"));
-
-            let idx = 0;
-            let side = "front";
-            let active = "all";
-
-            function renderLightbox() {
-              const backUrl = backs[idx];
-              const showBack = side === "back" && backUrl;
-              const url = showBack ? backUrl : fronts[idx];
-
-              lbImg.src = url;
-              lbImg.alt = labels[idx];
-
-              lbLabel.textContent = ""; // no filename/label
-              lbCount.textContent = `${idx + 1} / ${fronts.length}`;
-
-              if (flipBtn) {
-                const hasBack = !!backUrl;
-                flipBtn.disabled = !hasBack;
-                flipBtn.style.opacity = hasBack ? "1" : "0.35";
-                flipBtn.textContent = hasBack ? (showBack ? "View Front" : "View Back") : "No Back";
-              }
-            }
-
-            function openLightbox(i) {
-              idx = (i + fronts.length) % fronts.length;
-              side = "front";
-              renderLightbox();
-              lb.classList.remove("hidden");
-              lb.classList.add("flex");
-              lb.setAttribute("aria-hidden", "false");
-            }
-
-            function closeLightbox() {
-              lb.classList.add("hidden");
-              lb.classList.remove("flex");
-              lb.setAttribute("aria-hidden", "true");
-              lbImg.src = "";
-            }
-
-            function applyFilter() {
-              const term = (q?.value || "").toLowerCase().trim();
-              const tiles = Array.from(grid?.querySelectorAll(".tile") || []);
-
-              tiles.forEach((el) => {
-                const hay = (el.getAttribute("data-q") || "");
-                const tags = (el.getAttribute("data-tags") || "").split(",").filter(Boolean);
-
-                const matchesText = !term || hay.includes(term);
-                const matchesTag = active === "all" || tags.includes(active);
-
-                el.style.display = (matchesText && matchesTag) ? "" : "none";
-              });
-            }
-
-            document.querySelectorAll("[data-open]").forEach((btn) => {
-              btn.addEventListener("click", () => openLightbox(parseInt(btn.dataset.open, 10)));
-            });
-
-            lb.querySelectorAll("[data-close]").forEach((el) => el.addEventListener("click", closeLightbox));
-
-            prevBtn.addEventListener("click", () => {
-              idx = (idx - 1 + fronts.length) % fronts.length;
-              side = "front";
-              renderLightbox();
-            });
-            nextBtn.addEventListener("click", () => {
-              idx = (idx + 1) % fronts.length;
-              side = "front";
-              renderLightbox();
-            });
-
-            flipBtn?.addEventListener("click", () => {
-              if (!backs[idx]) return;
-              side = (side === "front") ? "back" : "front";
-              renderLightbox();
-            });
-
-            q?.addEventListener("input", applyFilter);
-
-            chips.forEach((btn) => {
-              btn.addEventListener("click", () => {
-                chips.forEach((b) => b.classList.remove("is-active"));
-                btn.classList.add("is-active");
-                active = btn.getAttribute("data-filter") || "all";
-                applyFilter();
-              });
-            });
-
-            window.addEventListener("keydown", (e) => {
-              if (!lb || lb.classList.contains("hidden")) return;
-              if (e.key === "Escape") closeLightbox();
-              if (e.key === "ArrowLeft") {
-                idx = (idx - 1 + fronts.length) % fronts.length;
-                side = "front";
-                renderLightbox();
-              }
-              if (e.key === "ArrowRight") {
-                idx = (idx + 1) % fronts.length;
-                side = "front";
-                renderLightbox();
-              }
-              if (e.key.toLowerCase() === "b") {
-                if (!backs[idx]) return;
-                side = (side === "front") ? "back" : "front";
-                renderLightbox();
-              }
-            });
-          </script>
-        </>
+        <div class="grid">
+          {images.map((img) => (
+            <a class="thumb" href={img.full} target="_blank" rel="noreferrer">
+              <img
+                src={img.thumb}
+                loading="lazy"
+                alt={img.file ?? "card image"}
+                onerror="this.onerror=null; this.src=this.closest('a').href;"
+              />
+            </a>
+          ))}
+        </div>
       )}
     </main>
   </body>

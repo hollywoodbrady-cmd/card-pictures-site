@@ -1,288 +1,49 @@
 ---
-// src/pages/index.astro
-import "../styles/global.css";
+import { loadSetsManifest } from "../lib/sets";
 
-const sports = [
-  { slug: "baseball", label: "Baseball", icon: "⚾" },
-  { slug: "basketball", label: "Basketball", icon: "🏀" },
-  { slug: "football", label: "Football", icon: "🏈" },
-];
-
-const quickLinks = [
-  { href: "/favorites/", label: "Favorites", icon: "⭐", desc: "Your saved hits across all sports." },
-  { href: "/psa/", label: "PSA Graded Cards", icon: "🧾", desc: "Slabs only — quick browse of graded cards." },
-];
-
-const buildStamp = new Date().toISOString();
+const { manifest, generatedAt } = loadSetsManifest();
+const sports = Object.keys(manifest).sort((a, b) => a.localeCompare(b));
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width" />
-    <title>Card Gallery</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Card Pictures</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 0; }
+      header { padding: 16px 20px; border-bottom: 1px solid #e5e5e5; }
+      main { padding: 20px; max-width: 1100px; margin: 0 auto; }
+      .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+      a.card { display: block; border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px; text-decoration: none; color: inherit; }
+      a.card:hover { border-color: #bbb; }
+      .muted { color: #666; font-size: 12px; }
+      .title { font-size: 18px; font-weight: 700; margin: 0 0 4px; text-transform: capitalize; }
+      .count { font-size: 13px; color: #333; }
+    </style>
   </head>
-
-  <body class="min-h-screen bg-zinc-950 text-zinc-100">
-    <main class="mx-auto max-w-6xl px-4 py-10">
-      <div class="rounded-3xl bg-gradient-to-b from-zinc-900/40 to-zinc-950 ring-1 ring-zinc-800 p-8 relative overflow-hidden">
-        <div class="absolute -top-24 -right-20 h-72 w-72 rounded-full bg-indigo-500/10 blur-3xl"></div>
-        <div class="absolute -bottom-20 -left-16 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl"></div>
-
-        <div class="inline-flex items-center gap-2 rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-3 py-1 text-sm text-zinc-200">
-          ✨ BradyRip Card Vault
-        </div>
-
-        <h1 class="h1" style="margin-top:14px;">Browse my hits, rookies, and favorites.</h1>
-
-        <p class="subtle" style="margin-top:10px; max-width: 60ch;">
-          Choose a sport → choose a set → tap a card to zoom.
-        </p>
-
-        {/* 2-column layout: tiles left, card of week right */}
-        <div class="mt-8 grid gap-6 lg:grid-cols-3">
-          {/* LEFT: menu tiles */}
-          <div class="lg:col-span-2">
-            {/* Sports tiles */}
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {sports.map((s) => (
-                <a
-                  href={`/${s.slug}/`}
-                  class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6"
-                >
-                  <div class="text-sm text-zinc-300">{s.icon} {s.label}</div>
-                  <div class="mt-2 text-xl font-semibold tracking-tight">Browse sets →</div>
-                  <div class="mt-2 text-sm text-zinc-400">View all sets and card images.</div>
-                </a>
-              ))}
-            </div>
-
-            {/* Favorites + PSA tiles (kept aligned under sports, centered on smaller rows automatically) */}
-            <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {quickLinks.map((q) => (
-                <a
-                  href={q.href}
-                  class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-6"
-                >
-                  <div class="text-sm text-zinc-300">{q.icon} {q.label}</div>
-                  <div class="mt-2 text-xl font-semibold tracking-tight">Open →</div>
-                  <div class="mt-2 text-sm text-zinc-400">{q.desc}</div>
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT: Card of the Week */}
-          <aside class="lg:col-span-1">
-            <div class="text-center text-sm text-zinc-300">🔥 Card of the Week</div>
-
-            <div class="mt-3 flex justify-center lg:justify-end">
-              <div class="w-full max-w-sm rounded-2xl bg-zinc-950/60 ring-1 ring-zinc-800 p-3">
-                {/* Button opens zoom modal (no navigation) */}
-                <button
-                  id="cotwOpen"
-                  type="button"
-                  class="block w-full"
-                  aria-label="Open Card of the Week"
-                >
-                  <img
-                    id="cotwImg"
-                    alt="Card of the Week"
-                    class="mx-auto w-full max-w-[320px] rounded-xl object-contain ring-1 ring-zinc-800"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </button>
-
-                {/* Only sport • set • score */}
-                <div id="cotwMeta" class="mt-2 text-center text-xs text-zinc-500"></div>
-
-                <div class="mt-3 flex justify-center">
-                  {/* Goes to set page */}
-                  <a
-                    id="cotwBtn"
-                    href="/"
-                    class="inline-flex items-center rounded-full bg-zinc-900/60 ring-1 ring-zinc-800 px-4 py-2 text-sm text-zinc-200 hover:ring-zinc-600 transition"
-                  >
-                    Go to set →
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Zoom modal */}
-            <dialog
-  id="cotwDialog"
-  class="backdrop:bg-black/70 rounded-3xl bg-zinc-950 text-zinc-100 ring-1 ring-zinc-800 p-0"
-  style="width:min(92vw,720px); margin:auto;"
->
-<style is:inline>
-  /* Force <dialog> to center consistently */
-  #cotwDialog[open] {
-    position: fixed;
-    inset: 0;
-    margin: auto;
-  }
-</style>
-
-              <div class="p-4 sm:p-6">
-                <div class="flex items-center justify-between gap-3">
-                  <div class="text-sm text-zinc-300">Card of the Week</div>
-
-                  <form method="dialog" class="flex items-center gap-2">
-                    <a id="cotwSetLink" class="btn" href="/">Go to set →</a>
-                    <button class="btn" value="cancel" aria-label="Close">Close</button>
-                  </form>
-                </div>
-
-                <div class="mt-4 flex justify-center">
-                  <img
-                    id="cotwZoomImg"
-                    alt="Card of the Week zoomed"
-                    class="block rounded-2xl ring-1 ring-zinc-800"
-                    style="max-height:70vh; width:auto;"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
-            </dialog>
-          </aside>
-        </div>
-
-        <div class="card" style="padding:16px; margin-top:18px;">
-          <div class="kicker">About</div>
-          <div class="subtle" style="margin-top:6px;">
-            Updated regularly — new uploads show up automatically.
-          </div>
-        </div>
-
-        <div class="mt-4 card" style="padding: 14px 16px;">
-          <div class="kicker">Contact</div>
-          <p class="subtle" style="margin: 10px 0 0;">
-            Email:
-            <a class="btn" style="margin-left: 8px;" href="mailto:bradyripcards@gmail.com">
-              bradyripcards@gmail.com
-            </a>
-          </p>
-        </div>
-
-        <div class="mt-3 text-xs text-zinc-500">
-          Build: {buildStamp}
+  <body>
+    <header>
+      <div style="max-width:1100px;margin:0 auto;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;">
+          <h1 style="margin:0;font-size:20px;">Card Pictures</h1>
+          {generatedAt && <span class="muted">Updated {new Date(generatedAt).toLocaleString()}</span>}
         </div>
       </div>
+    </header>
 
-      {/* Card of the Week picker + zoom behavior */}
-      <script is:inline>
-        (async () => {
-          const STORAGE_KEY = "bradyrip_cotw_v2";
-          const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-          const img = document.getElementById("cotwImg");
-          const meta = document.getElementById("cotwMeta");
-          const btn = document.getElementById("cotwBtn");
-
-          const openBtn = document.getElementById("cotwOpen");
-          const dlg = document.getElementById("cotwDialog");
-          const zoomImg = document.getElementById("cotwZoomImg");
-          const setLink = document.getElementById("cotwSetLink");
-
-          function now() {
-            return Date.now();
-          }
-
-          function loadCached() {
-            try {
-              const raw = localStorage.getItem(STORAGE_KEY);
-              if (!raw) return null;
-              const parsed = JSON.parse(raw);
-              if (!parsed || !parsed.pick || !parsed.expiresAt) return null;
-              if (now() > parsed.expiresAt) return null;
-              return parsed.pick;
-            } catch {
-              return null;
-            }
-          }
-
-          function saveCached(pick) {
-            try {
-              const payload = {
-                pick,
-                expiresAt: now() + WEEK_MS,
-                savedAt: now(),
-              };
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-            } catch {}
-          }
-
-          function toBiggerImage(thumbPath) {
-            // prefer the larger image if your folders have it
-            // thumbs/... -> front-webp/...
-            if (typeof thumbPath !== "string") return thumbPath;
-            if (thumbPath.includes("/thumbs/")) return thumbPath.replace("/thumbs/", "/front-webp/");
-            return thumbPath;
-          }
-
-          function applyPick(pick) {
-            const href = pick?.href || "/";
-            const thumbSrc = pick?.thumb || "";
-            const bigSrc = toBiggerImage(thumbSrc);
-
-            const metaParts = [];
-            if (pick?.sport) metaParts.push(pick.sport);
-            if (pick?.setSlug) metaParts.push(pick.setSlug);
-            if (typeof pick?.score === "number") metaParts.push(`score ${pick.score}`);
-
-            if (img && thumbSrc) img.src = thumbSrc;
-            if (meta) meta.textContent = metaParts.join(" • ");
-            if (btn) btn.href = href;
-
-            // modal wiring
-            if (zoomImg && bigSrc) zoomImg.src = bigSrc;
-            if (setLink) setLink.href = href;
-          }
-
-          // open modal on click
-          if (dlg && openBtn) {
-            openBtn.addEventListener("click", () => {
-              if (typeof dlg.showModal === "function") dlg.showModal();
-            });
-
-            // close on backdrop click
-            dlg.addEventListener("click", (e) => {
-              const r = dlg.getBoundingClientRect();
-              const clickedOutside =
-                e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
-              if (clickedOutside) dlg.close();
-            });
-          }
-
-          try {
-            // 1) Use cached pick if still valid
-            const cached = loadCached();
-            if (cached) {
-              applyPick(cached);
-              return;
-            }
-
-            // 2) Otherwise, fetch + pick new, then cache for 7 days
-            const res = await fetch("/good-cards.json", { cache: "no-store" });
-            if (!res.ok) return;
-
-            const data = await res.json();
-            const cards = Array.isArray(data) ? data : data?.cards;
-            if (!Array.isArray(cards) || cards.length === 0) return;
-
-            // pick from top ~12 by score, still random
-            const sorted = [...cards].sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-            const pool = sorted.slice(0, Math.min(12, sorted.length));
-            const pick = pool[Math.floor(Math.random() * pool.length)];
-
-            saveCached(pick);
-            applyPick(pick);
-          } catch {}
-        })();
-      </script>
+    <main>
+      <div class="grid">
+        {sports.map((sport) => {
+          const setCount = Object.keys(manifest[sport] ?? {}).length;
+          return (
+            <a class="card" href={`/${sport}/`}>
+              <div class="title">{sport}</div>
+              <div class="count">{setCount} set{setCount === 1 ? "" : "s"}</div>
+            </a>
+          );
+        })}
+      </div>
     </main>
   </body>
 </html>

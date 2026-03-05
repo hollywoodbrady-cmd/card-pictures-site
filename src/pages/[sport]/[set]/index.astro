@@ -1,16 +1,15 @@
 ---
+import "../../../styles/global.css";
 import { loadSetsManifest } from "../../../lib/sets";
 
 export async function getStaticPaths() {
   const { manifest } = loadSetsManifest();
-  const paths: { params: { sport: string; set: string } }[] = [];
-
+  const paths = [];
   for (const sport of Object.keys(manifest)) {
     for (const set of Object.keys(manifest[sport] ?? {})) {
       paths.push({ params: { sport, set } });
     }
   }
-
   return paths;
 }
 
@@ -23,57 +22,48 @@ const images = manifest[sport]?.[set] ?? [];
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>{set} • {sport} • Card Pictures</title>
-    <style>
-      body { font-family: system-ui, sans-serif; margin: 0; }
-      header { padding: 16px 20px; border-bottom: 1px solid #e5e5e5; }
-      main { padding: 20px; max-width: 1200px; margin: 0 auto; }
-      a { color: inherit; }
-      .crumbs { font-size: 13px; color: #555; margin-bottom: 10px; }
-      .meta { color: #666; font-size: 12px; margin-top: 6px; }
-      .grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
-      .thumb {
-        display: block;
-        border: 1px solid #e5e5e5;
-        border-radius: 10px;
-        overflow: hidden;
-        background: #f6f6f6;
-        text-decoration: none;
-      }
-      .thumb:hover { border-color: #bbb; }
-      img { width: 100%; height: 260px; object-fit: cover; display:block; }
-      .empty { padding: 16px; border: 1px dashed #ccc; border-radius: 10px; color: #555; }
-    </style>
+    <meta name="viewport" content="width=device-width" />
+    <title>{set} • {sport} • Card Gallery</title>
   </head>
-  <body>
-    <header>
-      <div style="max-width:1200px;margin:0 auto;">
-        <div class="crumbs">
-          <a href="/">Home</a> / <a href={`/${sport}/`} style="text-transform:capitalize;">{sport}</a> / <span>{set}</span>
-        </div>
-        <h1 style="margin:0;font-size:22px;">{set}</h1>
-        <div class="meta">{images.length} image{images.length === 1 ? "" : "s"}</div>
-      </div>
-    </header>
 
-    <main>
-      {images.length === 0 ? (
-        <div class="empty">No images found for this set in <code>thumbs/</code>.</div>
-      ) : (
-        <div class="grid">
-          {images.map((img) => (
-            <a class="thumb" href={img.full} target="_blank" rel="noreferrer">
+  <body class="min-h-screen bg-zinc-950 text-zinc-100">
+    <main class="mx-auto max-w-6xl px-4 py-10">
+      <div class="card" style="padding:16px;">
+        <div class="kicker flex items-center gap-2">
+          <a class="btn" href="/">Home</a>
+          <span class="text-zinc-500">/</span>
+          <a class="btn" href={`/${sport}/`} style="text-transform:capitalize;">{sport}</a>
+        </div>
+
+        <h1 class="h1" style="margin-top:10px;">{set}</h1>
+        <p class="subtle" style="margin-top:10px;">
+          {images.length} image{images.length === 1 ? "" : "s"} — tap a card to open full size.
+        </p>
+      </div>
+
+      <div class="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {images.map((img) => {
+          const href = img.full || img.thumb;
+          return (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-2"
+            >
               <img
                 src={img.thumb}
+                alt={img.file ?? "card"}
+                class="w-full rounded-xl object-cover ring-1 ring-zinc-800"
+                style="height: 240px;"
                 loading="lazy"
-                alt={img.file ?? "card image"}
-                onerror="this.onerror=null; this.src=this.closest('a').href;"
+                decoding="async"
+                onerror={`this.onerror=null; this.src='${href}';`}
               />
             </a>
-          ))}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </main>
   </body>
 </html>

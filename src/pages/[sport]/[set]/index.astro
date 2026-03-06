@@ -30,32 +30,132 @@ const images = manifest[sport]?.[set] ?? [];
 
       <h1 class="h1" style="margin-top:10px;">{set}</h1>
       <p class="subtle" style="margin-top:10px;">
-        {images.length} image{images.length === 1 ? "" : "s"} — tap a card to open full size.
+        {images.length} image{images.length === 1 ? "" : "s"} — tap a card to zoom.
       </p>
     </div>
 
+    {/* Grid */}
     <div class="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-      {images.map((img) => {
-        const href = img.full || img.thumb;
-        return (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-2"
-          >
-            <img
-              src={img.thumb}
-              alt={img.file ?? "card"}
-              class="w-full rounded-xl object-cover ring-1 ring-zinc-800"
-              style="height: 240px;"
-              loading="lazy"
-              decoding="async"
-              onerror={`this.onerror=null; this.src='${href}';`}
-            />
-          </a>
-        );
-      })}
+      {images.map((img, idx) => (
+        <button
+          type="button"
+          class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-2 text-left"
+          data-idx={idx}
+          data-full={img.full || img.thumb}
+          data-thumb={img.thumb}
+          aria-label="Open image"
+        >
+          <img
+            src={img.thumb}
+            alt={img.file ?? "card"}
+            class="w-full rounded-xl object-contain ring-1 ring-zinc-800 bg-zinc-900/30"
+            style="height: 240px;"
+            loading="lazy"
+            decoding="async"
+          />
+        </button>
+      ))}
     </div>
+
+    {/* Lightbox modal */}
+    <dialog
+      id="lightbox"
+      class="backdrop:bg-black/80 rounded-3xl bg-zinc-950 text-zinc-100 ring-1 ring-zinc-800 p-0"
+      style="width:min(96vw,1100px); margin:auto;"
+    >
+      <style is:inline>
+        #lightbox[open] { position: fixed; inset: 0; margin: auto; }
+      </style>
+
+      <div class="p-4 sm:p-6">
+        <div class="flex items-center justify-between gap-3">
+          <div class="text-sm text-zinc-300">
+            <span style="text-transform:capitalize;">{sport}</span> • {set}
+            <span id="lbCount" class="text-zinc-500"></span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="lbPrev" class="btn" type="button" aria-label="Previous">←</button>
+            <button id="lbNext" class="btn" type="button" aria-label="Next">→</button>
+            <form method="dialog">
+              <button class="btn" value="cancel" aria-label="Close">Close</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="mt-4 flex justify-center">
+          <img
+            id="lbImg"
+            alt="Zoomed card"
+            class="block rounded-2xl ring-1 ring-zinc-800 object-contain bg-zinc-900/30"
+            style="max-height:82vh; max-width:92vw; width:auto;"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+      </div>
+    </dialog>
+
+    {/* Lightbox behavior */}
+    <script is:inline define:vars={{ images }}>
+      (() => {
+        const imgs = images || [];
+        const dlg = document.getElementById("lightbox");
+        const lbImg = document.getElementById("lbImg");
+        const lbPrev = document.getElementById("lbPrev");
+        const lbNext = document.getElementById("lbNext");
+        const lbCount = document.getElementById("lbCount");
+
+        let current = 0;
+
+        function setCount() {
+          if (lbCount) lbCount.textContent = imgs.length ? ` • ${current + 1}/${imgs.length}` : "";
+        }
+
+        function openAt(i) {
+          if (!imgs.length) return;
+          current = Math.max(0, Math.min(i, imgs.length - 1));
+          const pick = imgs[current];
+          if (lbImg) {
+            lbImg.onerror = () => { lbImg.src = pick.thumb; };
+            lbImg.src = pick.full || pick.thumb;
+          }
+          setCount();
+          if (dlg && typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
+        }
+
+        function prev() { openAt((current - 1 + imgs.length) % imgs.length); }
+        function next() { openAt((current + 1) % imgs.length); }
+
+        // Click any grid item
+        document.querySelectorAll("button[data-idx]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const idx = Number(btn.getAttribute("data-idx") || "0");
+            openAt(idx);
+          });
+        });
+
+        // Buttons
+        if (lbPrev) lbPrev.addEventListener("click", prev);
+        if (lbNext) lbNext.addEventListener("click", next);
+
+        // Close on backdrop click
+        if (dlg) {
+          dlg.addEventListener("click", (e) => {
+            const r = dlg.getBoundingClientRect();
+            const clickedOutside =
+              e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+            if (clickedOutside) dlg.close();
+          });
+        }
+
+        // Keyboard controls
+        document.addEventListener("keydown", (e) => {
+          if (!dlg || !dlg.open) return;
+          if (e.key === "ArrowLeft") prev();
+          if (e.key === "ArrowRight") next();
+        });
+      })();
+    </script>
   </main>
 </Layout>

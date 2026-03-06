@@ -1,10 +1,1 @@
-@"
-<!doctype html>
-<html>
-  <head><meta charset="utf-8"><title>BradyRip R2</title></head>
-  <body style="font-family:system-ui">
-    <h1>BradyRip R2 Storage</h1>
-    <p>This domain serves card images.</p>
-  </body>
-</html>
-"@ | Out-File -Encoding utf8 C:\Temp\index.html
+C:\Tools\rclone\rclone.exe lsf "r2:card-pictures-site/" --files-only

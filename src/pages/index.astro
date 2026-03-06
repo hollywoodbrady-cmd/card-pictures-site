@@ -124,13 +124,13 @@ const buildStamp = generatedAt ? new Date(generatedAt).toLocaleString() : new Da
 
               <div class="mt-4 flex justify-center">
                 <img
-                  id="cotwZoomImg"
-                  alt="Random Card zoomed"
-                  class="block rounded-2xl ring-1 ring-zinc-800"
-                  style="max-height:70vh; width:auto;"
-                  loading="lazy"
-                  decoding="async"
-                />
+  		id="cotwZoomImg"
+  		alt="Random Card zoomed"
+  		class="block rounded-2xl ring-1 ring-zinc-800 object-contain bg-zinc-900/30"
+  		style="max-height:70vh; max-width:92vw; width:auto;"
+  		loading="lazy"
+  		decoding="async"
+		/>
               </div>
             </div>
           </dialog>
@@ -175,7 +175,10 @@ const buildStamp = generatedAt ? new Date(generatedAt).toLocaleString() : new Da
               function applyPick(pick) {
                 if (!pick) return;
                 if (img) img.src = pick.thumb;
-                if (zoomImg) zoomImg.src = pick.full || pick.thumb;
+                if (zoomImg) {
+  		zoomImg.onerror = () => { zoomImg.src = pick.thumb; };
+  		zoomImg.src = pick.full || pick.thumb;
+		}
                 if (meta) meta.textContent = `${pick.sport} • ${pick.setSlug}`;
                 const href = `/${pick.sport}/${pick.setSlug}/`;
                 if (btn) btn.href = href;

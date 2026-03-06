@@ -15,6 +15,7 @@ function need(name) {
   return process.env[name];
 }
 
+// Required env vars
 need("R2_ACCOUNT_ID");
 need("R2_ACCESS_KEY_ID");
 need("R2_SECRET_ACCESS_KEY");
@@ -32,7 +33,8 @@ const client = new S3Client({
 
 const bucket = R2_BUCKET;
 
-// We only care about thumbs; full is optional.
+// We will list everything under cards/ and then build a manifest from thumbs.
+// IMPORTANT: full images may not exist; we fall back to thumbs automatically.
 const PREFIX = "cards/";
 const THUMBS_SEGMENT = "/thumbs/";
 
@@ -61,44 +63,52 @@ async function listAllKeys(prefix) {
 }
 
 const keys = await listAllKeys(PREFIX);
+const keySet = new Set(keys);
 
-// Build structure: sports -> sets -> array of {thumb, full}
 const manifest = {};
 const base = R2_PUBLIC_BASE.replace(/\/$/, "");
 
+// Build structure: sports -> sets -> array of {thumb, full, file}
 for (const key of keys) {
   // Only thumbs images
   if (!key.includes(THUMBS_SEGMENT)) continue;
   if (!/\.(webp|jpg|jpeg|png|gif)$/i.test(key)) continue;
 
-  // key: cards/<sport>/<set>/thumbs/<file>
+  // key format: cards/<sport>/<set>/thumbs/<file>
   const parts = key.split("/");
   if (parts.length < 5) continue;
 
   const sport = parts[1];
   const set = parts[2];
-  const file = parts.slice(4).join("/"); // in case subfolders
+  const file = parts.slice(4).join("/"); // supports subfolders under thumbs
 
   const thumbUrl = `${base}/${key}`;
+
+  // Try to map to full image, but fall back to thumb if it doesn't exist.
   const fullKey = `cards/${sport}/${set}/full/${file}`;
-  const fullUrl = `${base}/${fullKey}`;
+  const fullExists = keySet.has(fullKey);
+  const fullUrl = fullExists ? `${base}/${fullKey}` : thumbUrl;
 
   manifest[sport] ??= {};
   manifest[sport][set] ??= [];
   manifest[sport][set].push({
     thumb: thumbUrl,
-    full: fullUrl, // may 404 if you don't have full; we'll handle in UI
+    full: fullUrl,
     file,
   });
 }
 
-// Optional: stable sort within each set by filename
+// Stable sort within each set by filename
 for (const sport of Object.keys(manifest)) {
   for (const set of Object.keys(manifest[sport])) {
-    manifest[sport][set].sort((a, b) => a.file.localeCompare(b.file));
+    manifest[sport][set].sort((a, b) => (a.file ?? "").localeCompare(b.file ?? ""));
   }
 }
 
 const outPath = path.join(process.cwd(), "public", "sets.json");
-fs.writeFileSync(outPath, JSON.stringify({ generatedAt: new Date().toISOString(), manifest }, null, 2));
+fs.writeFileSync(
+  outPath,
+  JSON.stringify({ generatedAt: new Date().toISOString(), manifest }, null, 2)
+);
+
 console.log(`Wrote sets manifest -> ${outPath}`);

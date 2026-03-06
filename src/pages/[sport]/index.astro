@@ -1,62 +1,118 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import "../../styles/global.css";
-import { loadSetsManifest } from "../../lib/sets";
 
 export async function getStaticPaths() {
-  const { manifest } = loadSetsManifest();
-  const paths = [];
-  for (const sport of Object.keys(manifest)) {
-    for (const set of Object.keys(manifest[sport] ?? {})) {
-      paths.push({ params: { sport, set } });
-    }
-  }
-  return paths;
+  // Always generate these 3 sport pages (prevents basketball 404)
+  return [
+    { params: { sport: "baseball" } },
+    { params: { sport: "basketball" } },
+    { params: { sport: "football" } },
+  ];
 }
 
-const { sport, set } = Astro.params;
-const { manifest } = loadSetsManifest();
-const images = manifest[sport]?.[set] ?? [];
+const { sport } = Astro.params;
+
+const labels = {
+  baseball: { label: "Baseball", icon: "⚾" },
+  basketball: { label: "Basketball", icon: "🏀" },
+  football: { label: "Football", icon: "🏈" },
+};
+
+const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
 ---
 
-<Layout title={`${set} • ${sport} • BradyRip Card Vault`}>
+<Layout title={`${meta.label} • BradyRip Card Vault`}>
   <main class="mx-auto max-w-6xl px-4 py-10">
     <div class="card" style="padding:16px;">
-      <div class="kicker flex items-center gap-2">
-        <a class="btn" href="/">Home</a>
-        <span class="text-zinc-500">/</span>
-        <a class="btn" href={`/${sport}/`} style="text-transform:capitalize;">{sport}</a>
+      <div class="kicker">
+        <a class="btn" href="/">← Home</a>
       </div>
-
-      <h1 class="h1" style="margin-top:10px;">{set}</h1>
+      <h1 class="h1" style="margin-top:10px;">
+        {meta.icon} <span style="text-transform:capitalize;">{meta.label}</span>
+      </h1>
       <p class="subtle" style="margin-top:10px;">
-        {images.length} image{images.length === 1 ? "" : "s"} — tap a card to open full size.
+        Pick a set to view pictures.
       </p>
     </div>
 
-    <div class="mt-6 grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-      {images.map((img) => {
-        const href = img.full || img.thumb;
+    {/* Client-rendered sets */}
+    <div id="setsGrid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
 
-        return (
-          <a
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-2"
-          >
-            <img
-              src={img.thumb}
-              alt={img.file ?? "card"}
-              class="w-full rounded-xl object-contain ring-1 ring-zinc-800 bg-zinc-900/30"
-              style="height: 240px;"
-              loading="lazy"
-              decoding="async"
-              onerror={`this.onerror=null; this.src='${href}';`}
-            />
-          </a>
-        );
-      })}
-    </div>
+    <template id="setCardTpl">
+      <a class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-4 block" href="#">
+        <div class="text-sm text-zinc-300" data-name></div>
+        <img
+          data-img
+          class="mt-3 w-full rounded-xl object-contain ring-1 ring-zinc-800 bg-zinc-900/30"
+          style="height:220px;"
+          loading="lazy"
+          decoding="async"
+          alt=""
+        />
+        <div class="mt-3 text-sm text-zinc-400" data-count></div>
+      </a>
+    </template>
+
+    <script is:inline>
+      (async () => {
+        const sport = "{sport}";
+        const grid = document.getElementById("setsGrid");
+        const tpl = document.getElementById("setCardTpl");
+
+        function showMsg(msg) {
+          grid.innerHTML = `
+            <div class="card" style="padding:16px;">
+              <div class="kicker">Sets</div>
+              <div class="subtle" style="margin-top:8px;">${msg}</div>
+              <div class="subtle" style="margin-top:8px;">
+                Debug: <a class="btn" href="/sets.json" target="_blank" rel="noreferrer">Open /sets.json</a>
+              </div>
+            </div>
+          `;
+        }
+
+        try {
+          const res = await fetch("/sets.json", { cache: "no-store" });
+          if (!res.ok) return showMsg("Could not load sets.json.");
+
+          const data = await res.json();
+          const manifest = data?.manifest || {};
+          const setsObj = manifest[sport] || {};
+          const setSlugs = Object.keys(setsObj).sort();
+
+          if (setSlugs.length === 0) {
+            return showMsg(`No sets found for ${sport}.`);
+          }
+
+          grid.innerHTML = "";
+          for (const setSlug of setSlugs) {
+            const imgs = setsObj[setSlug] || [];
+            const cover = imgs[0]?.thumb;
+
+            const node = tpl.content.cloneNode(true);
+            const a = node.querySelector("a");
+            const name = node.querySelector("[data-name]");
+            const count = node.querySelector("[data-count]");
+            const img = node.querySelector("[data-img]");
+
+            a.href = `/${sport}/${setSlug}/`;
+            name.textContent = setSlug;
+            count.textContent = `${imgs.length} image${imgs.length === 1 ? "" : "s"}`;
+
+            if (cover) {
+              img.src = cover;
+              img.alt = `${setSlug} cover`;
+            } else {
+              img.remove();
+            }
+
+            grid.appendChild(node);
+          }
+        } catch (e) {
+          showMsg("Error loading sets. Check console.");
+        }
+      })();
+    </script>
   </main>
 </Layout>

@@ -78,13 +78,9 @@ for (const key of keys) {
 
   const thumbUrl = `${base}/${key}`;
 
-  // Prefer front-webp, then full, else thumb
+  // Prefer front-webp for zoom (matches your old site)
   const frontKey = `cards/${sport}/${set}/front-webp/${file}`;
-  const fullKey = `cards/${sport}/${set}/full/${file}`;
-
-  let fullUrl = thumbUrl;
-  if (keySet.has(frontKey)) fullUrl = `${base}/${frontKey}`;
-  else if (keySet.has(fullKey)) fullUrl = `${base}/${fullKey}`;
+  const fullUrl = keySet.has(frontKey) ? `${base}/${frontKey}` : thumbUrl;
 
   manifest[sport] ??= {};
   manifest[sport][set] ??= [];

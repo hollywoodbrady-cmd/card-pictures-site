@@ -3,7 +3,7 @@ import Layout from "../../layouts/Layout.astro";
 import "../../styles/global.css";
 
 export async function getStaticPaths() {
-  // Always generate these 3 sport pages (prevents basketball 404)
+  // Always generate these pages so basketball never 404s
   return [
     { params: { sport: "baseball" } },
     { params: { sport: "basketball" } },
@@ -36,12 +36,11 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
       </p>
     </div>
 
-    {/* Client-rendered sets */}
     <div
-  id="setsGrid"
-  data-sport={sport}
-  class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
-></div>
+      id="setsGrid"
+      data-sport={sport}
+      class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    ></div>
 
     <template id="setCardTpl">
       <a class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-4 block" href="#">
@@ -59,29 +58,28 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
     </template>
 
     <script is:inline>
-  (async () => {
-    const grid = document.getElementById("setsGrid");
-    const tpl = document.getElementById("setCardTpl");
-    const sport = grid?.dataset?.sport;
+      (async () => {
+        const grid = document.getElementById("setsGrid");
+        const tpl = document.getElementById("setCardTpl");
+        const sport = grid?.dataset?.sport;
 
-    function showMsg(msg) {
-      grid.innerHTML = `
-        <div class="card" style="padding:16px;">
-          <div class="kicker">Sets</div>
-          <div class="subtle" style="margin-top:8px;">${msg}</div>
-          <div class="subtle" style="margin-top:8px;">
-            Debug: <a class="btn" href="/sets.json" target="_blank" rel="noreferrer">Open /sets.json</a>
-          </div>
-        </div>
-      `;
-    }
+        function showMsg(msg) {
+          grid.innerHTML = `
+            <div class="card" style="padding:16px;">
+              <div class="kicker">Sets</div>
+              <div class="subtle" style="margin-top:8px;">${msg}</div>
+              <div class="subtle" style="margin-top:8px;">
+                Debug: <a class="btn" href="/sets.json" target="_blank" rel="noreferrer">Open /sets.json</a>
+              </div>
+            </div>
+          `;
+        }
 
-    if (!sport) return showMsg("Missing sport param.");
+        if (!sport) return showMsg("Missing sport param.");
 
-    try {
-      const res = await fetch("/sets.json", { cache: "no-store" });
-      ...
-          if (!res.ok) return showMsg("Could not load sets.json.");
+        try {
+          const res = await fetch("/sets.json", { cache: "no-store" });
+          if (!res.ok) return showMsg("Could not load /sets.json");
 
           const data = await res.json();
           const manifest = data?.manifest || {};
@@ -89,10 +87,11 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
           const setSlugs = Object.keys(setsObj).sort();
 
           if (setSlugs.length === 0) {
-            return showMsg(`No sets found for ${sport}.`);
+            return showMsg(`No sets found for "${sport}". Available sports: ${Object.keys(manifest).join(", ") || "(none)"}`);
           }
 
           grid.innerHTML = "";
+
           for (const setSlug of setSlugs) {
             const imgs = setsObj[setSlug] || [];
             const cover = imgs[0]?.thumb;
@@ -110,6 +109,8 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
             if (cover) {
               img.src = cover;
               img.alt = `${setSlug} cover`;
+              // If the image 404s, keep the card but hide the broken image
+              img.onerror = () => img.remove();
             } else {
               img.remove();
             }
@@ -117,7 +118,7 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
             grid.appendChild(node);
           }
         } catch (e) {
-          showMsg("Error loading sets. Check console.");
+          showMsg("Error loading sets.json (see browser console).");
         }
       })();
     </script>

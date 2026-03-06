@@ -37,7 +37,11 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
     </div>
 
     {/* Client-rendered sets */}
-    <div id="setsGrid" class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+    <div
+  id="setsGrid"
+  data-sport={sport}
+  class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+></div>
 
     <template id="setCardTpl">
       <a class="group rounded-2xl bg-zinc-950 ring-1 ring-zinc-800 hover:ring-zinc-600 transition p-4 block" href="#">
@@ -55,25 +59,28 @@ const meta = labels[sport] ?? { label: sport, icon: "🗂️" };
     </template>
 
     <script is:inline>
-      (async () => {
-        const sport = "{sport}";
-        const grid = document.getElementById("setsGrid");
-        const tpl = document.getElementById("setCardTpl");
+  (async () => {
+    const grid = document.getElementById("setsGrid");
+    const tpl = document.getElementById("setCardTpl");
+    const sport = grid?.dataset?.sport;
 
-        function showMsg(msg) {
-          grid.innerHTML = `
-            <div class="card" style="padding:16px;">
-              <div class="kicker">Sets</div>
-              <div class="subtle" style="margin-top:8px;">${msg}</div>
-              <div class="subtle" style="margin-top:8px;">
-                Debug: <a class="btn" href="/sets.json" target="_blank" rel="noreferrer">Open /sets.json</a>
-              </div>
-            </div>
-          `;
-        }
+    function showMsg(msg) {
+      grid.innerHTML = `
+        <div class="card" style="padding:16px;">
+          <div class="kicker">Sets</div>
+          <div class="subtle" style="margin-top:8px;">${msg}</div>
+          <div class="subtle" style="margin-top:8px;">
+            Debug: <a class="btn" href="/sets.json" target="_blank" rel="noreferrer">Open /sets.json</a>
+          </div>
+        </div>
+      `;
+    }
 
-        try {
-          const res = await fetch("/sets.json", { cache: "no-store" });
+    if (!sport) return showMsg("Missing sport param.");
+
+    try {
+      const res = await fetch("/sets.json", { cache: "no-store" });
+      ...
           if (!res.ok) return showMsg("Could not load sets.json.");
 
           const data = await res.json();

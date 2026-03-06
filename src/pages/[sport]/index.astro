@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/layout.astro";
 import "../../styles/global.css";
-import { loadSetsManifest } from "../../../lib/sets";
+import { loadSetsManifest } from "../../lib/sets";
 
 export async function getStaticPaths() {
   const { manifest } = loadSetsManifest();

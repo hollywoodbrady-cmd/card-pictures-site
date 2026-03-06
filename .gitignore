@@ -26,3 +26,5 @@ pnpm-debug.log*
 !public/cards/**
 
 public/good-cards.json
+
+public/sets.json

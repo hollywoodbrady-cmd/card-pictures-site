@@ -1,4 +1,4 @@
----
+111--
 import Layout from "../../layouts/Layout.astro";
 import "../../styles/global.css";
 
@@ -8,6 +8,7 @@ export async function getStaticPaths() {
     { params: { sport: "baseball" } },
     { params: { sport: "basketball" } },
     { params: { sport: "football" } },
+    { params: { sport: "tcg" } },
   ];
 }
 
@@ -16,7 +17,8 @@ const { sport } = Astro.params;
 const labels = {
   baseball: { label: "Baseball", icon: "⚾" },
   basketball: { label: "Basketball", icon: "🏀" },
-  football: { label: "Football", icon: "🏈" },
+  football: { label: "Football", icon: "🏈" }
+  tcg: { label: "TCG", icon: "🃏" },
 };
 
 const meta = labels[sport] ?? { label: sport, icon: "🗂️" };

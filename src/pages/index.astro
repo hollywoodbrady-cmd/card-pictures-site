@@ -9,6 +9,7 @@ const sports = [
   { slug: "baseball", label: "Baseball", icon: "⚾" },
   { slug: "basketball", label: "Basketball", icon: "🏀" },
   { slug: "football", label: "Football", icon: "🏈" },
+  { slug: "tcg", label: "TCG", icon: "🃏" },
 ];
 
 const buildStamp = generatedAt ? new Date(generatedAt).toLocaleString() : new Date().toISOString();
@@ -106,7 +107,7 @@ const buildStamp = generatedAt ? new Date(generatedAt).toLocaleString() : new Da
           <dialog
             id="cotwDialog"
             class="backdrop:bg-black/70 rounded-3xl bg-zinc-950 text-zinc-100 ring-1 ring-zinc-800 p-0"
-            style="width:min(92vw,720px); margin:auto;"
+            style="width:min(92vw,960px); margin:auto;"
           >
             <style is:inline>
               #cotwDialog[open] { position: fixed; inset: 0; margin: auto; }
@@ -127,7 +128,7 @@ const buildStamp = generatedAt ? new Date(generatedAt).toLocaleString() : new Da
   		id="cotwZoomImg"
   		alt="Random Card zoomed"
   		class="block rounded-2xl ring-1 ring-zinc-800 object-contain bg-zinc-900/30"
-  		style="max-height:70vh; max-width:92vw; width:auto;"
+  		style="max-height:82vh; max-width:92vw; width:auto;"
   		loading="lazy"
   		decoding="async"
 		/>

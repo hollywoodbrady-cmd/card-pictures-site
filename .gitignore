@@ -6,6 +6,10 @@ dist/
 # dependencies
 node_modules/
 
+# Images live in R2, don’t commit them
+public/cards/
+public/sets.json
+
 # logs
 npm-debug.log*
 yarn-debug.log*

@@ -1,5 +1,8 @@
 const ALLOWED_USERS = new Set(["Isabella", "Haley", "Friend 2", "Friend 3?"]);
 const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
+const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", "Friend 2": "pikachu", "Friend 3?": "rowlet" });
+const AVATAR_PRESETS = new Set(["red-panda-face","red-panda-body","red-panda-sleepy","red-panda-berry","eevee","pikachu","vulpix","jigglypuff","mew","togepi","teddiursa","skitty","piplup","minccino","emolga","rowlet","rockruff","yamper","sprigatito","pawmi"]);
+const MAX_CUSTOM_AVATAR_LENGTH = 300000;
 const PIN_ENV = {
   Isabella: "PITCH_BLACK_PIN_ISABELLA",
   Haley: "PITCH_BLACK_PIN_HALEY",
@@ -27,6 +30,7 @@ function validCardId(checklist, id) {
 function storageKey(checklist, user) { return checklist === "pitch-black" ? `pitch-black:${user}` : `tepig-line:${user}`; }
 function activityKey(checklist) { return `pokemon-checklists:activity:${checklist}`; }
 function displayNameKey(user) { return `pokemon-checklists:display-name:${user}`; }
+function avatarKey(user) { return `pokemon-checklists:avatar:${user}`; }
 function cleanDisplayName(value) {
   if (typeof value !== "string") return null;
   const name = value.trim().replace(/\s+/g, " ");
@@ -37,6 +41,18 @@ async function getDisplayNames(context) {
   const pairs = await Promise.all([...ALLOWED_USERS].map(async user => {
     const saved = await context.env.PITCH_BLACK_CHECKLIST.get(displayNameKey(user));
     return [user, cleanDisplayName(saved) || DEFAULT_DISPLAY_NAMES[user] || user];
+  }));
+  return Object.fromEntries(pairs);
+}
+function cleanAvatar(value, user) {
+  if (value?.kind === "preset" && AVATAR_PRESETS.has(value.id)) return { kind: "preset", id: value.id };
+  if (value?.kind === "custom" && typeof value.dataUrl === "string" && value.dataUrl.length <= MAX_CUSTOM_AVATAR_LENGTH && /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(value.dataUrl)) return { kind: "custom", dataUrl: value.dataUrl };
+  return { kind: "preset", id: DEFAULT_AVATARS[user] };
+}
+async function getAvatars(context) {
+  const pairs = await Promise.all([...ALLOWED_USERS].map(async user => {
+    const saved = await context.env.PITCH_BLACK_CHECKLIST.get(avatarKey(user), { type: "json" });
+    return [user, cleanAvatar(saved, user)];
   }));
   return Object.fromEntries(pairs);
 }
@@ -59,7 +75,7 @@ function cleanStatuses(checklist, statuses, owned) {
 function ownedFromStatuses(statuses) { return Object.entries(statuses).filter(([,s]) => s === "have" || s === "duplicate").map(([id]) => id).sort(); }
 function normalizeRecord(user, checklist, raw) {
   const statuses = cleanStatuses(checklist, raw?.statuses, raw?.owned) || {};
-  return { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: raw?.lastSaved || null };
+  return { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: raw?.lastSaved || null, lastSavedBy: validUser(raw?.lastSavedBy) ? raw.lastSavedBy : (raw?.lastSaved ? user : null) };
 }
 function bytesToBase64Url(bytes) { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, ""); }
 function textToBase64Url(text) { return bytesToBase64Url(encoder.encode(text)); }
@@ -99,6 +115,16 @@ async function renameProfile(context, auth, body) {
   await context.env.PITCH_BLACK_CHECKLIST.put(displayNameKey(user), displayName);
   return json({ ok: true, user, displayName });
 }
+async function updateAvatar(context, auth, body) {
+  const { user } = body || {};
+  if (!validUser(user)) return json({ error: "Invalid user" }, 400);
+  if (auth.user !== user) return json({ error: "You can only change your own profile picture" }, 403);
+  const avatar = cleanAvatar(body?.avatar, user);
+  const supplied = body?.avatar;
+  if (!supplied || (supplied.kind === "preset" && !AVATAR_PRESETS.has(supplied.id)) || (supplied.kind === "custom" && (typeof supplied.dataUrl !== "string" || supplied.dataUrl.length > MAX_CUSTOM_AVATAR_LENGTH || !/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/i.test(supplied.dataUrl)))) return json({ error: "Invalid profile picture" }, 400);
+  await context.env.PITCH_BLACK_CHECKLIST.put(avatarKey(user), JSON.stringify(avatar));
+  return json({ ok: true, user, avatar });
+}
 
 async function appendActivity(context, checklist, entries) {
   if (!entries.length) return;
@@ -111,12 +137,12 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url); const checklist = url.searchParams.get("checklist") || "pitch-black";
   if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400);
   if (url.searchParams.get("activity") === "1") {
-    const [activity, displayNames] = await Promise.all([context.env.PITCH_BLACK_CHECKLIST.get(activityKey(checklist), { type: "json" }), getDisplayNames(context)]); return json({ checklist, activity: Array.isArray(activity) ? activity : [], displayNames });
+    const [activity, displayNames, avatars] = await Promise.all([context.env.PITCH_BLACK_CHECKLIST.get(activityKey(checklist), { type: "json" }), getDisplayNames(context), getAvatars(context)]); return json({ checklist, activity: Array.isArray(activity) ? activity : [], displayNames, avatars });
   }
   if (url.searchParams.get("all") === "1") {
-    const [pairs, displayNames] = await Promise.all([Promise.all([...ALLOWED_USERS].map(async user => [user, await getRecord(context, checklist, user)])), getDisplayNames(context)]); return json({ checklist, collections: Object.fromEntries(pairs), displayNames });
+    const [pairs, displayNames, avatars] = await Promise.all([Promise.all([...ALLOWED_USERS].map(async user => [user, await getRecord(context, checklist, user)])), getDisplayNames(context), getAvatars(context)]); return json({ checklist, collections: Object.fromEntries(pairs), displayNames, avatars });
   }
-  const user = url.searchParams.get("user"); if (!validUser(user)) return json({ error: "Invalid user" }, 400); const [record, displayNames] = await Promise.all([getRecord(context, checklist, user), getDisplayNames(context)]); return json({ ...record, displayName: displayNames[user] });
+  const user = url.searchParams.get("user"); if (!validUser(user)) return json({ error: "Invalid user" }, 400); const [record, displayNames, avatars] = await Promise.all([getRecord(context, checklist, user), getDisplayNames(context), getAvatars(context)]); return json({ ...record, displayName: displayNames[user], avatar: avatars[user] });
 }
 
 export async function onRequestPost(context) {
@@ -126,10 +152,11 @@ export async function onRequestPost(context) {
   const secret = context.env.PITCH_BLACK_AUTH_SECRET; if (!secret) return json({ error: "Authentication is not configured" }, 503);
   const auth = await verifyToken(authHeaderToken(context.request), secret); if (!auth) return json({ error: "Unlock required" }, 401);
   if (body?.action === "rename") return renameProfile(context, auth, body);
+  if (body?.action === "avatar") return updateAvatar(context, auth, body);
   const { user, checklist = "pitch-black" } = body || {}; if (!validUser(user)) return json({ error: "Invalid user" }, 400); if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400); if (auth.user !== user) return json({ error: "You can only edit your own checklist" }, 403);
   const statuses = cleanStatuses(checklist, body.statuses, body.owned); if (!statuses) return json({ error: "Invalid card status data" }, 400);
   const previous = await getRecord(context, checklist, user); const now = new Date().toISOString();
-  const record = { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: now };
+  const record = { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: now, lastSavedBy: user };
   await context.env.PITCH_BLACK_CHECKLIST.put(storageKey(checklist, user), JSON.stringify(record));
   const ids = new Set([...Object.keys(previous.statuses), ...Object.keys(statuses)]); const changes = [];
   for (const cardId of ids) {

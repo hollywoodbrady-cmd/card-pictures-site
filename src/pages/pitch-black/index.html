@@ -86,6 +86,36 @@
       border-radius: 12px; padding: 11px 12px; outline: none; margin-top: 8px;
     }
     .name-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
+    .update-meta {
+      display: flex; justify-content: center; align-items: center; gap: 10px 18px; flex-wrap: wrap;
+      margin: -2px 0 12px; color: var(--muted); font-size: 12px; text-align: center;
+    }
+    .update-meta-item { display: inline-flex; align-items: center; gap: 7px; }
+    .update-meta b { color: #dfe2eb; }
+    .avatar {
+      width: 30px; height: 30px; flex: 0 0 auto; border-radius: 50%; object-fit: cover;
+      background: #242936; border: 1px solid rgba(255,255,255,.13); padding: 2px;
+    }
+    .avatar.sm { width: 24px; height: 24px; }
+    .avatar.lg { width: 44px; height: 44px; padding: 3px; }
+    .avatar.xl { width: 72px; height: 72px; padding: 4px; }
+    .profile-btn { display: inline-flex; align-items: center; gap: 8px; }
+    .collector-value { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .collector-value span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .person-with-avatar { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+    .avatar-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin-top: 14px; }
+    .avatar-option {
+      display: grid; place-items: center; gap: 7px; min-width: 0; padding: 10px 7px; cursor: pointer;
+      border: 1px solid var(--border); background: rgba(255,255,255,.025); border-radius: 14px;
+      color: var(--text); transition: .16s ease;
+    }
+    .avatar-option:hover { transform: translateY(-2px); border-color: #565e76; }
+    .avatar-option.active { border-color: rgba(166,108,255,.85); box-shadow: 0 0 0 2px rgba(166,108,255,.12); background: rgba(166,108,255,.09); }
+    .avatar-option img { width: 66px; height: 66px; border-radius: 50%; object-fit: contain; background: #242936; padding: 4px; }
+    .avatar-option span { font-size: 10px; font-weight: 800; text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
+    .avatar-current { display: flex; align-items: center; gap: 13px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.02); margin-top: 12px; }
+    .upload-box { margin-top: 15px; padding: 13px; border: 1px dashed #3d4354; border-radius: 14px; background: rgba(255,255,255,.018); }
+    .upload-box input[type=file] { width: 100%; margin-top: 9px; color: var(--muted); }
     .stats { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; margin: 18px 0 12px; }
     .stat, .panel {
       background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018));
@@ -122,6 +152,7 @@
     .milestone.earned { color: #fff; border-color: rgba(166,108,255,.5); background: rgba(166,108,255,.13); }
     .activity-list { display: grid; gap: 8px; max-height: 190px; overflow: auto; padding-right: 3px; }
     .activity-item { border-bottom: 1px solid rgba(255,255,255,.055); padding-bottom: 8px; font-size: 12px; line-height: 1.4; }
+    .activity-main { display: flex; align-items: flex-start; gap: 8px; }
     .activity-item:last-child { border-bottom: 0; padding-bottom: 0; }
     .activity-time { color: var(--muted); font-size: 11px; margin-top: 2px; }
     .section-title { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 23px 0 13px; }
@@ -249,10 +280,13 @@
       .mobile-summary small { display: block; color: var(--muted); font-weight: 650; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .mobile-bar .save-btn { margin: 0; min-width: 95px; padding: 9px 10px; }
       .toast { bottom: 82px; }
+      .avatar-grid { grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+      .avatar-option img { width: 58px; height: 58px; }
     }
     @media (max-width: 420px) {
       .stats { grid-template-columns: 1fr 1fr; }
       .detail-fields { grid-template-columns: 1fr; }
+      .avatar-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
     }
   </style>
 </head>
@@ -286,13 +320,18 @@
 
   <main class="wrap">
     <section class="stats">
-      <div class="stat"><div class="stat-label">Collector</div><div class="stat-value" id="collectorStat">Isabella</div></div>
+      <div class="stat"><div class="stat-label">Collector</div><div class="stat-value collector-value" id="collectorStat">Isabella</div></div>
       <div class="stat"><div class="stat-label">Checklist</div><div class="stat-value" id="checklistStat" style="font-size:17px">Pitch Black</div></div>
       <div class="stat"><div class="stat-label">Collected</div><div class="stat-value" id="collectedStat">0 / 95</div><div class="progress-shell"><div class="progress-bar" id="progressBar"></div></div></div>
       <div class="stat"><div class="stat-label">Need</div><div class="stat-value" id="needStat">0</div></div>
       <div class="stat"><div class="stat-label">Trade duplicates</div><div class="stat-value" id="tradeStat">0</div></div>
       <div class="stat"><div class="stat-label">Save status</div><div class="stat-value" id="saveStatus" style="font-size:14px"><span class="sync-dot" id="syncDot"></span>Loading…</div></div>
     </section>
+
+    <div class="update-meta" aria-label="Update information">
+      <span class="update-meta-item" id="lastUpdatedBy">Last updated by: —</span>
+      <span class="update-meta-item" id="siteUpdated">Site updated: —</span>
+    </div>
 
     <div class="access-note" id="accessHint">You are viewing Isabella’s Pitch Black checklist read-only.</div>
 
@@ -302,6 +341,7 @@
       <button class="tool-btn trade" id="tradeButton">🔁 Trade Finder</button>
       <button class="tool-btn" id="backupButton">💾 Backup / Export</button>
       <button class="tool-btn" id="renameButton">✏️ Change Name</button>
+      <button class="tool-btn" id="avatarButton">🖼️ Change Icon / Photo</button>
     </div>
 
     <section class="dashboard">
@@ -382,6 +422,40 @@
     const USERS = ["Isabella", "Haley", "Friend 2", "Friend 3?"]; // Stable account IDs; visible names can change.
     const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
     const DISPLAY_NAMES_STORAGE_KEY = "pokemon-shared-checklists-display-names-v1";
+    const AVATARS_STORAGE_KEY = "pokemon-shared-checklists-avatars-v1";
+    const SITE_UPDATED_AT = "2026-08-15T21:23:00-07:00";
+    const SITE_VERSION = "v5";
+    const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", "Friend 2": "pikachu", "Friend 3?": "rowlet" });
+    function svgData(svg) { return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; }
+    function redPandaSvg(mode) {
+      const body = mode === "body" || mode === "berry";
+      const sleepy = mode === "sleepy";
+      const berry = mode === "berry";
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160"><rect width="160" height="160" rx="80" fill="#f7d9bd"/><ellipse cx="80" cy="${body ? 91 : 82}" rx="${body ? 48 : 50}" ry="${body ? 50 : 44}" fill="#c94f36"/><path d="M38 54 25 26 56 39M122 54l13-28-31 13" fill="#8a2f26"/><path d="M42 53 34 37 52 43M118 53l8-16-18 6" fill="#f2c8aa"/><ellipse cx="80" cy="82" rx="44" ry="38" fill="#d85b3d"/><path d="M44 70c9-19 24-26 36-26s27 7 36 26c-15-7-25-8-36-8s-21 1-36 8" fill="#fff1df" opacity=".92"/><ellipse cx="80" cy="91" rx="24" ry="18" fill="#fff1df"/><path d="M67 ${sleepy ? 79 : 78} ${sleepy ? 'q7 6 14 0' : 'a5 5 0 1 0 0 .1'}M93 ${sleepy ? 79 : 78} ${sleepy ? 'q-7 6-14 0' : 'a5 5 0 1 1 0 .1'}" stroke="#2e2022" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M74 89q6 6 12 0" stroke="#2e2022" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="80" cy="86" r="4" fill="#2e2022"/>${body ? '<ellipse cx="80" cy="132" rx="34" ry="18" fill="#a33e31"/><path d="M105 124q38-7 28 19-15 16-38-1" fill="#b94a35"/><path d="M112 127q12 2 19 8M106 136q12 1 21 8" stroke="#f4c9a8" stroke-width="7"/>' : ''}${berry ? '<circle cx="55" cy="126" r="12" fill="#ef4565"/><path d="M52 114q3-10 12-9" stroke="#5ca657" stroke-width="5" fill="none"/>' : ''}</svg>`;
+    }
+    const AVATAR_PRESETS = [
+      { id: "red-panda-face", label: "Red Panda", src: svgData(redPandaSvg("face")) },
+      { id: "red-panda-body", label: "Red Panda Body", src: svgData(redPandaSvg("body")) },
+      { id: "red-panda-sleepy", label: "Sleepy Panda", src: svgData(redPandaSvg("sleepy")) },
+      { id: "red-panda-berry", label: "Berry Panda", src: svgData(redPandaSvg("berry")) },
+      { id: "eevee", label: "Eevee", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/133.png" },
+      { id: "pikachu", label: "Pikachu", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png" },
+      { id: "vulpix", label: "Vulpix", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/37.png" },
+      { id: "jigglypuff", label: "Jigglypuff", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png" },
+      { id: "mew", label: "Mew", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/151.png" },
+      { id: "togepi", label: "Togepi", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/175.png" },
+      { id: "teddiursa", label: "Teddiursa", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/216.png" },
+      { id: "skitty", label: "Skitty", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/300.png" },
+      { id: "piplup", label: "Piplup", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/393.png" },
+      { id: "minccino", label: "Minccino", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/572.png" },
+      { id: "emolga", label: "Emolga", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/587.png" },
+      { id: "rowlet", label: "Rowlet", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/722.png" },
+      { id: "rockruff", label: "Rockruff", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/744.png" },
+      { id: "yamper", label: "Yamper", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/835.png" },
+      { id: "sprigatito", label: "Sprigatito", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/906.png" },
+      { id: "pawmi", label: "Pawmi", src: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/921.png" }
+    ];
+    const AVATAR_PRESET_MAP = Object.fromEntries(AVATAR_PRESETS.map(item => [item.id, item]));
     const STORAGE_KEY = "pokemon-shared-checklists-v3";
     const PREV_STORAGE_KEY = "pokemon-shared-checklists-v2";
     const LEGACY_STORAGE_KEY = "pitch-black-checklist-v1";
@@ -437,8 +511,9 @@
     let state = loadState();
     let authTokens = loadAuthTokens();
     let displayNames = loadDisplayNames();
+    let profileAvatars = loadAvatars();
 
-    function blankRecord() { return { statuses: {}, lastSaved: null }; }
+    function blankRecord() { return { statuses: {}, lastSaved: null, lastSavedBy: null }; }
     function defaultState() { return Object.fromEntries(Object.keys(CHECKLISTS).map(cid => [cid, Object.fromEntries(USERS.map(u => [u, blankRecord()]))])); }
     function normalizeStatuses(rawStatuses, owned) {
       const out = {};
@@ -455,7 +530,7 @@
         for (const user of USERS) {
           const rec = parsed?.[cid]?.[user];
           if (!rec) continue;
-          base[cid][user] = { statuses: normalizeStatuses(rec.statuses, rec.owned), lastSaved: rec.lastSaved || null };
+          base[cid][user] = { statuses: normalizeStatuses(rec.statuses, rec.owned), lastSaved: rec.lastSaved || null, lastSavedBy: rec.lastSavedBy || (rec.lastSaved ? user : null) };
         }
       }
     }
@@ -467,7 +542,7 @@
         try { mergeStored(base, JSON.parse(localStorage.getItem(PREV_STORAGE_KEY) || "null")); } catch {}
         try {
           const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "null");
-          if (legacy?.Isabella) base["pitch-black"].Isabella = { statuses: normalizeStatuses(null, legacy.Isabella.owned), lastSaved: legacy.Isabella.lastSaved || null };
+          if (legacy?.Isabella) base["pitch-black"].Isabella = { statuses: normalizeStatuses(null, legacy.Isabella.owned), lastSaved: legacy.Isabella.lastSaved || null, lastSavedBy: legacy.Isabella.lastSaved ? "Isabella" : null };
         } catch {}
       }
       return base;
@@ -494,6 +569,38 @@
       if (changed) writeDisplayNames();
     }
     function displayName(user = activeUser) { return displayNames[user] || DEFAULT_DISPLAY_NAMES[user] || user; }
+    function loadAvatars() {
+      const out = Object.fromEntries(USERS.map(user => [user, { kind: "preset", id: DEFAULT_AVATARS[user] }]));
+      try {
+        const saved = JSON.parse(localStorage.getItem(AVATARS_STORAGE_KEY) || "{}");
+        if (saved && typeof saved === "object") for (const user of USERS) if (saved[user] && typeof saved[user] === "object") out[user] = saved[user];
+      } catch {}
+      return out;
+    }
+    function writeAvatars() { localStorage.setItem(AVATARS_STORAGE_KEY, JSON.stringify(profileAvatars)); }
+    function normalizeAvatar(value, user) {
+      if (value?.kind === "custom" && typeof value.dataUrl === "string" && /^data:image\/(?:jpeg|png|webp);base64,/i.test(value.dataUrl)) return { kind: "custom", dataUrl: value.dataUrl };
+      if (value?.kind === "preset" && AVATAR_PRESET_MAP[value.id]) return { kind: "preset", id: value.id };
+      return { kind: "preset", id: DEFAULT_AVATARS[user] };
+    }
+    function applyAvatars(incoming) {
+      if (!incoming || typeof incoming !== "object") return;
+      let changed = false;
+      for (const user of USERS) {
+        const next = normalizeAvatar(incoming[user], user);
+        if (JSON.stringify(profileAvatars[user]) !== JSON.stringify(next)) { profileAvatars[user] = next; changed = true; }
+      }
+      if (changed) writeAvatars();
+    }
+    function avatarSrc(user = activeUser) {
+      const avatar = normalizeAvatar(profileAvatars[user], user);
+      if (avatar.kind === "custom") return avatar.dataUrl;
+      return AVATAR_PRESET_MAP[avatar.id]?.src || AVATAR_PRESET_MAP[DEFAULT_AVATARS[user]]?.src || AVATAR_PRESETS[0].src;
+    }
+    function avatarHtml(user = activeUser, size = "sm", altSuffix = "profile icon") {
+      return `<img class="avatar ${esc(size)}" src="${esc(avatarSrc(user))}" alt="${esc(displayName(user))} ${esc(altSuffix)}" loading="lazy" decoding="async" />`;
+    }
+    function personHtml(user, size = "sm") { return `<span class="person-with-avatar">${avatarHtml(user, size)}<b>${esc(displayName(user))}</b></span>`; }
     function loadDirty() { try { const p = JSON.parse(localStorage.getItem(DIRTY_STORAGE_KEY) || "[]"); return new Set(Array.isArray(p) ? p : []); } catch { return new Set(); } }
     function writeDirty() { localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify([...dirty])); }
     function checklist(id = activeChecklist) { return CHECKLISTS[id]; }
@@ -519,7 +626,7 @@
       }));
     }
     function renderProfiles() {
-      profilesEl.innerHTML = USERS.map(u => `<button class="profile-btn ${u === activeUser ? "active" : ""}" data-user="${esc(u)}">${esc(displayName(u))}${isUnlocked(u) ? " ✓" : ""}</button>`).join("");
+      profilesEl.innerHTML = USERS.map(u => `<button class="profile-btn ${u === activeUser ? "active" : ""}" data-user="${esc(u)}">${avatarHtml(u, "sm")}<span>${esc(displayName(u))}${isUnlocked(u) ? " ✓" : ""}</span></button>`).join("");
       profilesEl.querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => { activeUser = btn.dataset.user; renderAll(); await refreshCloud(activeChecklist); renderAll(); }));
     }
     function filteredCards() {
@@ -551,11 +658,15 @@
       const statuses = scope.map(c => statusOf(c.id));
       const have = statuses.filter(collected).length, need = statuses.filter(s => s === "need").length, trades = statuses.filter(s => s === "duplicate").length;
       const pct = scope.length ? Math.round(have / scope.length * 100) : 0;
-      $("#collectorStat").textContent = displayName(); $("#checklistStat").textContent = checklist().title; $("#collectedStat").textContent = `${have} / ${scope.length}`;
+      $("#collectorStat").innerHTML = `${avatarHtml(activeUser, "lg")}<span>${esc(displayName())}</span>`; $("#checklistStat").textContent = checklist().title; $("#collectedStat").textContent = `${have} / ${scope.length}`;
       $("#needStat").textContent = need; $("#tradeStat").textContent = trades; $("#progressBar").style.width = `${pct}%`;
       const unlocked = isUnlocked(), last = record().lastSaved, dirtyNow = isDirty();
       const syncText = cloudAvailable ? "Cloud sync ready" : "Cloud sync unavailable";
-      $("#saveStatus").innerHTML = `<span class="sync-dot ${cloudAvailable ? "cloud" : ""}"></span>${dirtyNow ? "Unsaved changes" : (unlocked ? "Editing enabled" : "Read-only")}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:3px">${syncText}${last ? ` • ${new Date(last).toLocaleString()}` : ""}</div>`;
+      const lastText = last ? new Date(last).toLocaleString() : "Not saved yet";
+      $("#saveStatus").innerHTML = `<span class="sync-dot ${cloudAvailable ? "cloud" : ""}"></span>${dirtyNow ? "Unsaved changes" : (unlocked ? "Editing enabled" : "Read-only")}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:3px">${syncText}</div><div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px">Last saved: ${esc(lastText)}</div>`;
+      const updatedBy = record().lastSavedBy || (last ? activeUser : null);
+      $("#lastUpdatedBy").innerHTML = updatedBy ? `${avatarHtml(updatedBy, "sm")}<span>Last updated by <b>${esc(displayName(updatedBy))}</b></span>` : `<span>Last updated by <b>—</b></span>`;
+      $("#siteUpdated").innerHTML = `<span>Site updated <b>${esc(new Date(SITE_UPDATED_AT).toLocaleString())}</b> • ${esc(SITE_VERSION)}</span>`;
       $("#accessHint").textContent = unlocked ? `Editing ${displayName()}'s ${checklist().title} checklist. Changes stay local until you press Save changes.` : `You are viewing ${displayName()}'s ${checklist().title} checklist read-only. Anyone can view; only ${displayName()} can unlock and save changes.`;
       $("#missingQuick").textContent = `🔎 Show ${displayName()}\'s Missing Cards`;
       const authBtn = $("#authButton"); authBtn.textContent = unlocked ? `Lock ${displayName()}` : `Unlock ${displayName()}`; authBtn.classList.toggle("unlocked", unlocked);
@@ -606,7 +717,7 @@
     }
     function renderActivity() {
       const list = activityByChecklist[activeChecklist] || [];
-      $("#activityList").innerHTML = list.length ? list.slice(0, 10).map(a => `<div class="activity-item">${activityText(a)}<div class="activity-time">${new Date(a.at).toLocaleString()}</div></div>`).join("") : `<div class="tiny">No saved activity yet. New changes will appear here after someone saves.</div>`;
+      $("#activityList").innerHTML = list.length ? list.slice(0, 10).map(a => `<div class="activity-item"><div class="activity-main">${avatarHtml(a.user, "sm")}<div>${activityText(a)}<div class="activity-time">${new Date(a.at).toLocaleString()}</div></div></div></div>`).join("") : `<div class="tiny">No saved activity yet. New changes will appear here after someone saves.</div>`;
     }
     function renderGrid() {
       const visible = filteredCards();
@@ -654,7 +765,7 @@
       $("#statusHelp").innerHTML = isUnlocked() ? `Choose a status, then press <b>Save changes</b> to sync it for everyone.` : `Read-only. <button id="detailUnlock" class="utility-btn" style="padding:5px 8px;margin-left:5px">Unlock ${esc(displayName())}</button> to edit.`;
       $("#statusActions").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setStatus(c.id, b.dataset.status)));
       $("#detailUnlock")?.addEventListener("click", () => { closeCardModal(); openAuthModal(); });
-      $("#everyoneStatus").innerHTML = USERS.map(u => { const s = statusOf(c.id, u); return `<div class="person-status"><b>${esc(displayName(u))}</b><span class="status-pill ${s}">${esc(statusLabel(s))}</span></div>`; }).join("");
+      $("#everyoneStatus").innerHTML = USERS.map(u => { const s = statusOf(c.id, u); return `<div class="person-status">${personHtml(u, "sm")}<span class="status-pill ${s}">${esc(statusLabel(s))}</span></div>`; }).join("");
     }
 
     function openAuthModal() { $("#authTitle").textContent = `Unlock ${displayName()}`; $("#authText").textContent = `Enter ${displayName()}'s PIN to enable editing on this device.`; authError.textContent = ""; pinInput.value = ""; authModal.classList.add("show"); authModal.setAttribute("aria-hidden", "false"); setTimeout(() => pinInput.focus(), 30); }
@@ -673,11 +784,11 @@
     async function loadAllCloud(cid = activeChecklist) {
       try {
         const res = await fetch(`${API_URL}?${new URLSearchParams({ checklist: cid, all: "1" })}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; applyDisplayNames(data?.displayNames);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; applyDisplayNames(data?.displayNames); applyAvatars(data?.avatars);
         if (data?.collections) {
           for (const user of USERS) {
             const incoming = data.collections[user]; if (!incoming || isDirty(cid, user)) continue;
-            state[cid][user] = { statuses: normalizeStatuses(incoming.statuses, incoming.owned), lastSaved: incoming.lastSaved || null };
+            state[cid][user] = { statuses: normalizeStatuses(incoming.statuses, incoming.owned), lastSaved: incoming.lastSaved || null, lastSavedBy: incoming.lastSavedBy || (incoming.lastSaved ? user : null) };
           }
           writeLocal();
         }
@@ -687,7 +798,7 @@
     async function loadActivity(cid = activeChecklist) {
       try {
         const res = await fetch(`${API_URL}?${new URLSearchParams({ checklist: cid, activity: "1" })}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; applyDisplayNames(data?.displayNames); activityByChecklist[cid] = Array.isArray(data.activity) ? data.activity : []; return activityByChecklist[cid];
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; applyDisplayNames(data?.displayNames); applyAvatars(data?.avatars); activityByChecklist[cid] = Array.isArray(data.activity) ? data.activity : []; return activityByChecklist[cid];
       } catch { return activityByChecklist[cid] || []; }
     }
     async function refreshCloud(cid = activeChecklist) { await Promise.all([loadAllCloud(cid), loadActivity(cid)]); }
@@ -699,7 +810,7 @@
         const data = await res.json().catch(() => ({}));
         if (res.status === 401 || res.status === 403) { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); throw new Error("Your edit access expired. Unlock again."); }
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        cloudAvailable = true; state[activeChecklist][activeUser] = { statuses: normalizeStatuses(data.statuses, data.owned), lastSaved: data.lastSaved || new Date().toISOString() };
+        cloudAvailable = true; state[activeChecklist][activeUser] = { statuses: normalizeStatuses(data.statuses, data.owned), lastSaved: data.lastSaved || new Date().toISOString(), lastSavedBy: data.lastSavedBy || activeUser };
         dirty.delete(dirtyKey()); writeDirty(); writeLocal(); await refreshCloud(activeChecklist); renderAll(); showToast(`${displayName()}'s ${checklist().title} changes saved.`);
       } catch (err) { showToast(err.message || "Could not save the checklist."); }
     }
@@ -710,7 +821,7 @@
     async function showCompare() {
       await loadAllCloud(activeChecklist); renderAll();
       const rows = scopeCards().map(c => `<tr><td><b>${esc(c.name)}</b><div class="tiny">${esc(c.displayNumber)} • ${esc(c.set)}</div></td>${USERS.map(u => `<td>${statusPillHtml(statusOf(c.id,u))}</td>`).join("")}</tr>`).join("");
-      openToolModal(`Compare Collections — ${checklist().title}`, `<p class="tiny">Side-by-side status for the ${scopeCards().length} cards in the current checklist view.</p><div class="compare-wrap"><table class="compare"><thead><tr><th>Card</th>${USERS.map(u => `<th>${esc(displayName(u))}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`);
+      openToolModal(`Compare Collections — ${checklist().title}`, `<p class="tiny">Side-by-side status for the ${scopeCards().length} cards in the current checklist view.</p><div class="compare-wrap"><table class="compare"><thead><tr><th>Card</th>${USERS.map(u => `<th>${avatarHtml(u, "sm")}<div style="margin-top:4px">${esc(displayName(u))}</div></th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`);
     }
     async function showTradeFinder() {
       await loadAllCloud(activeChecklist); renderAll();
@@ -719,7 +830,7 @@
         const givers = USERS.filter(u => statusOf(c.id,u) === "duplicate"); const receivers = USERS.filter(u => statusOf(c.id,u) === "need");
         for (const giver of givers) for (const receiver of receivers) if (giver !== receiver) trades.push({ c, giver, receiver });
       }
-      const body = trades.length ? `<p class="tiny">Matches only cards explicitly marked <b>Duplicate / trade</b> by one collector and <b>Need</b> by another.</p><div class="trade-list">${trades.map(t => `<div class="trade-item"><div class="trade-card">${esc(t.c.name)} ${esc(t.c.displayNumber)} <span class="tiny">• ${esc(t.c.set)}</span></div><div class="trade-person"><b>${esc(displayName(t.giver))}</b><br><span class="tiny">has duplicate</span></div><div class="trade-arrow">→</div><div class="trade-person"><b>${esc(displayName(t.receiver))}</b><br><span class="tiny">needs it</span></div></div>`).join("")}</div>` : `<div class="empty" style="margin-top:15px">No trade matches yet.<br><span class="tiny">Mark cards as Need and Duplicate / trade to create matches.</span></div>`;
+      const body = trades.length ? `<p class="tiny">Matches only cards explicitly marked <b>Duplicate / trade</b> by one collector and <b>Need</b> by another.</p><div class="trade-list">${trades.map(t => `<div class="trade-item"><div class="trade-card">${esc(t.c.name)} ${esc(t.c.displayNumber)} <span class="tiny">• ${esc(t.c.set)}</span></div><div class="trade-person">${personHtml(t.giver, "sm")}<br><span class="tiny">has duplicate</span></div><div class="trade-arrow">→</div><div class="trade-person">${personHtml(t.receiver, "sm")}<br><span class="tiny">needs it</span></div></div>`).join("")}</div>` : `<div class="empty" style="margin-top:15px">No trade matches yet.<br><span class="tiny">Mark cards as Need and Duplicate / trade to create matches.</span></div>`;
       openToolModal(`Trade Finder — ${checklist().title}`, body);
     }
     function downloadBlob(filename, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
@@ -727,20 +838,20 @@
       await Promise.all(Object.keys(CHECKLISTS).flatMap(cid => [loadAllCloud(cid), loadActivity(cid)])); writeLocal();
       const exportedAt = new Date().toISOString();
       if (format === "json") {
-        const payload = { version: 4, exportedAt, displayNames, collections: state, activity: activityByChecklist };
+        const payload = { version: 5, exportedAt, displayNames, avatars: profileAvatars, collections: state, activity: activityByChecklist, siteUpdatedAt: SITE_UPDATED_AT };
         downloadBlob(`pokemon-checklists-backup-${exportedAt.slice(0,10)}.json`, JSON.stringify(payload, null, 2), "application/json"); showToast("JSON backup downloaded.");
       } else {
         const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const rows = [["Checklist","Collector","Card ID","Pokemon / Card","Set","Number","Status","Last Saved"]];
+        const rows = [["Checklist","Collector","Card ID","Pokemon / Card","Set","Number","Status","Last Saved","Last Updated By"]];
         for (const [cid, cfg] of Object.entries(CHECKLISTS)) for (const user of USERS) for (const c of cfg.cards) {
           const s = statusOf(c.id, user, cid); if (s === "none") continue;
-          rows.push([cfg.title,displayName(user),c.id,c.name,c.set,c.displayNumber,statusLabel(s),state[cid][user].lastSaved || ""]);
+          rows.push([cfg.title,displayName(user),c.id,c.name,c.set,c.displayNumber,statusLabel(s),state[cid][user].lastSaved || "",state[cid][user].lastSavedBy ? displayName(state[cid][user].lastSavedBy) : ""]);
         }
         downloadBlob(`pokemon-checklists-${exportedAt.slice(0,10)}.csv`, rows.map(r => r.map(q).join(",")).join("\r\n"), "text/csv;charset=utf-8"); showToast("CSV export downloaded.");
       }
     }
     function showBackup() {
-      openToolModal("Backup / Export", `<p>Download a backup of everyone’s saved collection data. JSON is the best full backup; CSV is easier to open in Excel.</p><div class="export-actions"><button class="tool-btn primary" id="jsonExport">Download JSON backup</button><button class="tool-btn" id="csvExport">Download CSV</button></div><p class="tiny" style="margin-top:14px">The export contains collection statuses and save timestamps. PINs and authentication secrets are never included.</p>`);
+      openToolModal("Backup / Export", `<p>Download a backup of everyone’s saved collection data. JSON is the best full backup; CSV is easier to open in Excel.</p><div class="export-actions"><button class="tool-btn primary" id="jsonExport">Download JSON backup</button><button class="tool-btn" id="csvExport">Download CSV</button></div><p class="tiny" style="margin-top:14px">The export contains collection statuses, display names, profile icons/photos, and save timestamps. PINs and authentication secrets are never included.</p>`);
       $("#jsonExport").addEventListener("click", () => exportBackup("json")); $("#csvExport").addEventListener("click", () => exportBackup("csv"));
     }
 
@@ -781,6 +892,43 @@
       }
     }
 
+    function showAvatarPicker() {
+      if (!isUnlocked()) { showToast(`Unlock ${displayName()} before changing the icon.`); openAuthModal(); return; }
+      const current = normalizeAvatar(profileAvatars[activeUser], activeUser);
+      const options = AVATAR_PRESETS.map(item => `<button class="avatar-option ${current.kind === "preset" && current.id === item.id ? "active" : ""}" data-avatar-id="${esc(item.id)}"><img src="${esc(item.src)}" alt="${esc(item.label)}" loading="lazy" /><span>${esc(item.label)}</span></button>`).join("");
+      openToolModal("Choose your icon or profile photo", `<p class="tiny">Only you can change your profile picture. Pick one of the 20 built-in choices, or upload your own photo.</p><div class="avatar-current">${avatarHtml(activeUser, "xl")}<div><b>${esc(displayName())}</b><div class="tiny" style="margin-top:3px">Current profile picture</div></div></div><div class="avatar-grid">${options}</div><div class="upload-box"><b>Use your own photo</b><div class="tiny" style="margin-top:4px">JPG, PNG, or WebP. It is automatically cropped to a square and resized before it is saved.</div><input id="avatarUpload" type="file" accept="image/jpeg,image/png,image/webp" /><div id="avatarError" class="auth-error"></div></div>`);
+      $("#toolBody").querySelectorAll("[data-avatar-id]").forEach(button => button.addEventListener("click", () => saveAvatar({ kind: "preset", id: button.dataset.avatarId })));
+      $("#avatarUpload").addEventListener("change", handleAvatarUpload);
+    }
+    async function saveAvatar(avatar) {
+      if (!isUnlocked()) return showAvatarPicker();
+      const error = $("#avatarError"); if (error) error.textContent = "Saving…";
+      try {
+        const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authTokens[activeUser]}` }, body: JSON.stringify({ action: "avatar", user: activeUser, avatar }) });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || res.status === 403) { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); throw new Error("Your edit access expired. Unlock again."); }
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        profileAvatars[activeUser] = normalizeAvatar(data.avatar || avatar, activeUser); writeAvatars(); cloudAvailable = true;
+        closeToolModal(); renderAll(); showToast(`${displayName()}'s profile picture was updated.`);
+      } catch (err) { if (error) error.textContent = err.message || "Could not save the profile picture."; else showToast(err.message || "Could not save the profile picture."); }
+    }
+    function readFileAsDataURL(file) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = () => reject(new Error("Could not read that image.")); reader.readAsDataURL(file); }); }
+    function loadImage(src) { return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error("Could not open that image.")); img.src = src; }); }
+    async function handleAvatarUpload(event) {
+      const file = event.target.files?.[0], error = $("#avatarError"); if (!file) return;
+      if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) { error.textContent = "Choose a JPG, PNG, or WebP image."; return; }
+      if (file.size > 10 * 1024 * 1024) { error.textContent = "Choose an image smaller than 10 MB."; return; }
+      error.textContent = "Preparing photo…";
+      try {
+        const source = await readFileAsDataURL(file); const img = await loadImage(source);
+        const canvas = document.createElement("canvas"); canvas.width = 256; canvas.height = 256; const ctx = canvas.getContext("2d");
+        const side = Math.min(img.naturalWidth, img.naturalHeight), sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2;
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, 256, 256);
+        const dataUrl = canvas.toDataURL("image/jpeg", .84);
+        await saveAvatar({ kind: "custom", dataUrl });
+      } catch (err) { error.textContent = err.message || "Could not prepare that photo."; }
+    }
+
     function showToast(message) { toastEl.textContent = message; toastEl.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toastEl.classList.remove("show"), 3000); }
 
     document.querySelectorAll(".seg-btn").forEach(btn => btn.addEventListener("click", () => { if (!checklist().supportsPokemonOnly) return; displayMode = btn.dataset.mode; renderAll(); }));
@@ -789,7 +937,7 @@
     $("#save").addEventListener("click", saveActiveUser); $("#authButton").addEventListener("click", () => isUnlocked() ? lockActiveUser() : openAuthModal());
     $("#mobileAction").addEventListener("click", () => isUnlocked() ? saveActiveUser() : openAuthModal());
     $("#missingQuick").addEventListener("click", () => { filter = "missing"; document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filter === "missing")); renderAll(); $("#gridTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
-    $("#compareButton").addEventListener("click", showCompare); $("#tradeButton").addEventListener("click", showTradeFinder); $("#backupButton").addEventListener("click", showBackup); $("#renameButton").addEventListener("click", showRename);
+    $("#compareButton").addEventListener("click", showCompare); $("#tradeButton").addEventListener("click", showTradeFinder); $("#backupButton").addEventListener("click", showBackup); $("#renameButton").addEventListener("click", showRename); $("#avatarButton").addEventListener("click", showAvatarPicker);
     $("#refreshActivity").addEventListener("click", async () => { await refreshCloud(activeChecklist); renderAll(); showToast("Collection data refreshed."); });
     $("#authCancel").addEventListener("click", closeAuthModal); $("#unlockSubmit").addEventListener("click", unlockActiveUser);
     pinInput.addEventListener("keydown", e => { if (e.key === "Enter") unlockActiveUser(); if (e.key === "Escape") closeAuthModal(); });

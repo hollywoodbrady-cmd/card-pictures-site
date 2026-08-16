@@ -11,16 +11,18 @@
       --bg: #08090d;
       --panel: #11131a;
       --panel-2: #171a23;
+      --panel-3: #1d202b;
       --text: #f7f7fb;
       --muted: #9ea3b0;
       --accent: #a66cff;
       --accent-2: #5ee7df;
       --border: #2a2e3b;
       --success: #61d095;
+      --need: #ffbd5b;
+      --trade: #5ee7df;
       --danger: #ff6b7a;
       --shadow: 0 18px 45px rgba(0,0,0,.32);
     }
-
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
@@ -32,320 +34,227 @@
         var(--bg);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding-bottom: 16px;
     }
-
     button, input { font: inherit; }
     button { color: inherit; }
-
+    button:disabled { opacity: .55; cursor: not-allowed !important; transform: none !important; }
     .wrap { width: min(1480px, calc(100% - 28px)); margin: 0 auto; }
-
-    header {
-      padding: 34px 0 18px;
-      position: relative;
-      overflow: hidden;
-    }
-
+    header { padding: 34px 0 18px; }
     .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 11px;
-      border: 1px solid rgba(166,108,255,.35);
-      background: rgba(166,108,255,.09);
-      color: #d9c4ff;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .13em;
-      text-transform: uppercase;
+      display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px;
+      border: 1px solid rgba(166,108,255,.35); background: rgba(166,108,255,.09);
+      color: #d9c4ff; border-radius: 999px; font-size: 12px; font-weight: 800;
+      letter-spacing: .13em; text-transform: uppercase;
     }
-
-    h1 {
-      margin: 14px 0 5px;
-      font-size: clamp(32px, 5vw, 64px);
-      line-height: .98;
-      letter-spacing: -.045em;
-    }
-
-    .subtitle { margin: 10px 0 0; color: var(--muted); max-width: 750px; line-height: 1.6; }
-
+    h1 { margin: 14px 0 5px; font-size: clamp(32px, 5vw, 64px); line-height: .98; letter-spacing: -.045em; }
+    .subtitle { margin: 10px 0 0; color: var(--muted); max-width: 900px; line-height: 1.6; }
     .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 30;
-      padding: 10px 0;
-      backdrop-filter: blur(18px);
-      background: rgba(8,9,13,.82);
-      border-top: 1px solid rgba(255,255,255,.03);
-      border-bottom: 1px solid rgba(255,255,255,.06);
+      position: sticky; top: 0; z-index: 30; padding: 10px 0;
+      backdrop-filter: blur(18px); background: rgba(8,9,13,.86);
+      border-top: 1px solid rgba(255,255,255,.03); border-bottom: 1px solid rgba(255,255,255,.06);
     }
-
     .toolbar-inner { display: grid; gap: 10px; }
-
-    .top-row, .bottom-row {
-      display: flex;
-      gap: 9px;
-      align-items: center;
-      flex-wrap: wrap;
+    .top-row, .bottom-row { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+    .set-btn, .profile-btn, .seg-btn, .filter-btn, .save-btn, .utility-btn, .tool-btn, .status-btn {
+      border: 1px solid var(--border); background: var(--panel); border-radius: 12px;
+      padding: 10px 13px; cursor: pointer; transition: .16s ease; font-weight: 750;
     }
-
-    .set-btn, .profile-btn, .seg-btn, .filter-btn, .save-btn, .utility-btn {
-      border: 1px solid var(--border);
-      background: var(--panel);
-      border-radius: 12px;
-      padding: 10px 13px;
-      cursor: pointer;
-      transition: .16s ease;
-      font-weight: 750;
+    .set-btn:hover, .profile-btn:hover, .seg-btn:hover, .filter-btn:hover, .utility-btn:hover, .tool-btn:hover, .status-btn:hover {
+      border-color: #50576d; transform: translateY(-1px);
     }
-
-    .set-btn:hover, .profile-btn:hover, .seg-btn:hover, .filter-btn:hover, .utility-btn:hover { border-color: #50576d; transform: translateY(-1px); }
     .set-btn.active, .profile-btn.active, .seg-btn.active, .filter-btn.active {
       border-color: rgba(166,108,255,.85);
       background: linear-gradient(180deg, rgba(166,108,255,.23), rgba(166,108,255,.10));
       box-shadow: inset 0 0 0 1px rgba(166,108,255,.12);
     }
-
     .save-btn {
-      margin-left: auto;
-      min-width: 128px;
-      border-color: rgba(94,231,223,.45);
+      margin-left: auto; min-width: 128px; border-color: rgba(94,231,223,.45);
       background: linear-gradient(135deg, rgba(94,231,223,.20), rgba(166,108,255,.19));
     }
     .save-btn:hover { transform: translateY(-1px); border-color: rgba(94,231,223,.8); }
-
+    .save-btn.dirty { box-shadow: 0 0 0 3px rgba(94,231,223,.12); }
+    .utility-btn.unlocked { border-color: rgba(97,208,149,.55); color: #b9f5d2; }
     .search {
-      flex: 1 1 230px;
-      min-width: 180px;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 12px;
-      outline: none;
+      flex: 1 1 230px; min-width: 180px; border: 1px solid var(--border); background: var(--panel);
+      color: var(--text); border-radius: 12px; padding: 10px 12px; outline: none;
     }
     .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0,1fr));
-      gap: 10px;
-      margin: 18px 0;
-    }
-
-    .stat {
+    .stats { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; margin: 18px 0 12px; }
+    .stat, .panel {
       background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018));
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 14px 16px;
+      border: 1px solid var(--border); border-radius: 16px;
     }
-    .stat-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; }
-    .stat-value { font-size: 23px; font-weight: 900; margin-top: 5px; letter-spacing: -.02em; }
-
+    .stat { padding: 14px 16px; }
+    .stat-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; }
+    .stat-value { font-size: 22px; font-weight: 900; margin-top: 5px; letter-spacing: -.02em; }
     .progress-shell { height: 9px; background: #1b1e27; border-radius: 999px; overflow: hidden; margin-top: 9px; }
     .progress-bar { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .3s ease; }
-
-    .section-title {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 16px;
-      margin: 23px 0 13px;
+    .access-note {
+      padding: 11px 14px; border: 1px solid var(--border); border-radius: 13px; color: #d6d9e4;
+      background: rgba(255,255,255,.025); margin-bottom: 12px; font-size: 13px;
     }
+    .tool-row { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0 16px; }
+    .tool-btn.primary { border-color: rgba(166,108,255,.58); background: rgba(166,108,255,.12); }
+    .tool-btn.trade { border-color: rgba(94,231,223,.48); background: rgba(94,231,223,.09); }
+    .dashboard { display: grid; grid-template-columns: 1.15fr 1fr 1.35fr; gap: 12px; margin-bottom: 18px; }
+    .panel { padding: 15px; min-width: 0; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .panel h3 { margin: 0; font-size: 15px; }
+    .tiny { color: var(--muted); font-size: 12px; }
+    .breakdown-list { display: grid; gap: 9px; }
+    .break-row { display: grid; grid-template-columns: minmax(90px,1fr) auto; gap: 8px; align-items: center; }
+    .break-name { font-size: 13px; font-weight: 800; }
+    .break-count { font-size: 12px; color: var(--muted); font-weight: 800; }
+    .mini-progress { grid-column: 1 / -1; height: 6px; border-radius: 999px; overflow: hidden; background: #20232d; }
+    .mini-progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+    .badges { display: flex; flex-wrap: wrap; gap: 7px; }
+    .milestone {
+      padding: 7px 9px; border-radius: 999px; border: 1px solid var(--border); background: #141721;
+      color: #8f94a4; font-size: 12px; font-weight: 800;
+    }
+    .milestone.earned { color: #fff; border-color: rgba(166,108,255,.5); background: rgba(166,108,255,.13); }
+    .activity-list { display: grid; gap: 8px; max-height: 190px; overflow: auto; padding-right: 3px; }
+    .activity-item { border-bottom: 1px solid rgba(255,255,255,.055); padding-bottom: 8px; font-size: 12px; line-height: 1.4; }
+    .activity-item:last-child { border-bottom: 0; padding-bottom: 0; }
+    .activity-time { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .section-title { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin: 23px 0 13px; }
     .section-title h2 { margin: 0; font-size: 19px; }
     .section-title .hint { color: var(--muted); font-size: 13px; }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 12px;
-      padding-bottom: 50px;
-    }
-
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; color: var(--muted); font-size: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; }
+    .dot.have { background: var(--success); } .dot.need { background: var(--need); } .dot.trade { background: var(--trade); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; padding-bottom: 50px; }
     .card {
-      position: relative;
-      background: linear-gradient(180deg, #171a23, #11131a);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      overflow: hidden;
-      cursor: pointer;
-      user-select: none;
-      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
-      box-shadow: 0 10px 24px rgba(0,0,0,.14);
+      position: relative; background: linear-gradient(180deg, #171a23, #11131a); border: 1px solid var(--border);
+      border-radius: 16px; overflow: hidden; cursor: pointer; user-select: none;
+      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease; box-shadow: 0 10px 24px rgba(0,0,0,.14);
     }
     .card:hover { transform: translateY(-3px); border-color: #464d61; }
-    .card.owned {
-      border-color: rgba(97,208,149,.78);
-      box-shadow: 0 0 0 1px rgba(97,208,149,.18), 0 14px 34px rgba(0,0,0,.24);
-    }
-
-    .card-image-wrap {
-      position: relative;
-      aspect-ratio: 744 / 1038;
-      background: radial-gradient(circle at 40% 20%, #323849, #0f1118 62%);
-      overflow: hidden;
-    }
+    .card.status-have { border-color: rgba(97,208,149,.78); box-shadow: 0 0 0 1px rgba(97,208,149,.14), 0 14px 34px rgba(0,0,0,.24); }
+    .card.status-need { border-color: rgba(255,189,91,.70); }
+    .card.status-duplicate { border-color: rgba(94,231,223,.80); box-shadow: 0 0 0 1px rgba(94,231,223,.13), 0 14px 34px rgba(0,0,0,.24); }
+    .card-image-wrap { position: relative; aspect-ratio: 744 / 1038; background: radial-gradient(circle at 40% 20%, #323849, #0f1118 62%); overflow: hidden; }
     .card img { width: 100%; height: 100%; display: block; object-fit: contain; transition: .2s ease; }
     .card:hover img { transform: scale(1.018); }
-
-    .fallback {
-      position: absolute;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 14px;
-      color: #d6d8e1;
-      font-weight: 900;
-      background: linear-gradient(145deg, #212532, #0e1016);
+    .fallback { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; text-align: center; padding: 14px; color: #d6d8e1; font-weight: 900; background: linear-gradient(145deg, #212532, #0e1016); }
+    .status-badge {
+      position: absolute; top: 8px; right: 8px; min-height: 30px; padding: 0 8px; border-radius: 999px;
+      display: none; align-items: center; justify-content: center; font-size: 10px; font-weight: 950; letter-spacing: .06em;
+      backdrop-filter: blur(8px); border: 1px solid;
     }
-
-    .owned-badge {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      height: 34px;
-      width: 34px;
-      border-radius: 999px;
-      display: grid;
-      place-items: center;
-      background: rgba(9,18,14,.86);
-      border: 1px solid rgba(97,208,149,.72);
-      opacity: 0;
-      transform: scale(.75);
-      transition: .15s ease;
-      font-size: 18px;
-    }
-    .card.owned .owned-badge { opacity: 1; transform: scale(1); }
-
-    .card-info { padding: 10px 11px 12px; }
-    .card-name { font-size: 14px; font-weight: 850; line-height: 1.2; min-height: 34px; }
-    .card-meta { margin-top: 5px; display: flex; justify-content: space-between; gap: 7px; color: var(--muted); font-size: 11px; }
-    .kind { color: #cbb6ff; }
-
-    .empty {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 48px 20px;
-      color: var(--muted);
-      border: 1px dashed var(--border);
-      border-radius: 16px;
-    }
-
-    .toast {
-      position: fixed;
-      right: 16px;
-      bottom: 16px;
-      z-index: 60;
-      max-width: min(420px, calc(100% - 32px));
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      background: rgba(17,19,26,.96);
-      box-shadow: var(--shadow);
-      border-radius: 13px;
-      color: var(--text);
-      opacity: 0;
-      transform: translateY(10px);
-      pointer-events: none;
-      transition: .2s ease;
-      font-size: 13px;
-    }
-    .toast.show { opacity: 1; transform: translateY(0); }
-
-    .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #747b8e; display: inline-block; margin-right: 6px; }
-    .sync-dot.cloud { background: var(--success); box-shadow: 0 0 0 4px rgba(97,208,149,.10); }
-
-    footer { color: var(--muted); font-size: 12px; padding: 0 0 30px; line-height: 1.55; }
-
-
-    .access-note {
-      margin: 0 0 18px;
-      padding: 11px 13px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.025);
-      border-radius: 13px;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .utility-btn.unlocked {
-      border-color: rgba(97,208,149,.65);
-      background: rgba(97,208,149,.10);
-    }
-    .save-btn[hidden] { display: none !important; }
-    .card.locked { cursor: default; }
-    .card.locked:hover { transform: none; }
-    .read-badge {
-      position: absolute;
-      left: 8px;
-      top: 8px;
-      padding: 5px 7px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(8,9,13,.76);
-      color: rgba(255,255,255,.72);
-      font-size: 9px;
-      font-weight: 900;
-      letter-spacing: .12em;
-      backdrop-filter: blur(8px);
-    }
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      background: rgba(4,5,8,.76);
-      backdrop-filter: blur(10px);
-    }
-    .modal-backdrop.show { display: flex; }
-    .modal {
-      width: min(420px, 100%);
-      padding: 22px;
-      border: 1px solid var(--border);
-      background: linear-gradient(180deg, #171a23, #101219);
-      border-radius: 20px;
-      box-shadow: var(--shadow);
-    }
-    .modal-lock { font-size: 26px; }
-    .modal h3 { margin: 9px 0 5px; font-size: 24px; }
-    .modal p { margin: 0 0 15px; color: var(--muted); line-height: 1.5; font-size: 13px; }
-    .pin-input {
-      width: 100%;
-      padding: 12px 13px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: #0d0f15;
-      color: var(--text);
-      outline: none;
-      letter-spacing: .14em;
-    }
+    .card.status-have .status-badge.have { display: flex; color: #c7f8db; background: rgba(10,28,19,.89); border-color: rgba(97,208,149,.72); }
+    .card.status-need .status-badge.need { display: flex; color: #ffe1ad; background: rgba(38,27,8,.90); border-color: rgba(255,189,91,.74); }
+    .card.status-duplicate .status-badge.duplicate { display: flex; color: #c8fffb; background: rgba(7,30,30,.91); border-color: rgba(94,231,223,.72); }
+    .read-badge { position: absolute; left: 8px; top: 8px; border-radius: 999px; padding: 5px 7px; background: rgba(5,6,9,.76); border: 1px solid rgba(255,255,255,.13); color: #aeb3c2; font-size: 9px; font-weight: 900; letter-spacing: .08em; }
+    .card-info { padding: 10px 10px 11px; }
+    .card-name { font-size: 13px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-meta { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .card-meta .kind { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+    .empty { grid-column: 1 / -1; border: 1px dashed var(--border); border-radius: 16px; padding: 42px 20px; text-align: center; color: var(--muted); }
+    footer { color: #777d8d; font-size: 11px; line-height: 1.6; border-top: 1px solid rgba(255,255,255,.05); padding: 20px 0 44px; }
+    .sync-dot { width: 8px; height: 8px; display: inline-block; border-radius: 999px; background: var(--danger); margin-right: 7px; vertical-align: 1px; }
+    .sync-dot.cloud { background: var(--success); }
+    .modal-backdrop { position: fixed; inset: 0; z-index: 80; display: none; place-items: center; padding: 18px; background: rgba(0,0,0,.72); backdrop-filter: blur(10px); }
+    .modal-backdrop.show { display: grid; }
+    .modal { width: min(430px, 100%); background: #11131a; border: 1px solid #34394a; border-radius: 20px; box-shadow: var(--shadow); padding: 22px; }
+    .modal h3 { margin: 0 0 7px; font-size: 22px; }
+    .modal p { color: var(--muted); margin: 0 0 15px; line-height: 1.5; }
+    .modal-lock { font-size: 30px; margin-bottom: 10px; }
+    .pin-input { width: 100%; border: 1px solid var(--border); background: #090a0f; color: #fff; border-radius: 12px; padding: 12px 13px; outline: none; }
     .pin-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
-    .auth-error { min-height: 20px; margin-top: 8px; color: #ff9ca7; font-size: 12px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 8px; }
-    .modal-actions .save-btn { margin-left: 0; }
-
+    .auth-error { min-height: 20px; margin-top: 8px; color: #ff9aa5; font-size: 12px; }
+    .modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 10px; }
+    .toast { position: fixed; right: 18px; bottom: 18px; z-index: 120; max-width: min(420px, calc(100% - 36px)); background: #171a23; border: 1px solid #3a4051; border-radius: 13px; padding: 11px 14px; color: #fff; box-shadow: var(--shadow); transform: translateY(18px); opacity: 0; pointer-events: none; transition: .2s ease; font-size: 13px; }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .card-modal { width: min(880px, 100%); max-height: min(850px, 94vh); overflow: auto; padding: 0; }
+    .card-modal-grid { display: grid; grid-template-columns: minmax(240px, 340px) 1fr; }
+    .detail-image { padding: 18px; background: #0b0d12; display: grid; place-items: start center; }
+    .detail-image img { width: 100%; max-height: 70vh; object-fit: contain; border-radius: 12px; }
+    .detail-body { padding: 22px; min-width: 0; }
+    .detail-close, .tool-close { float: right; border: 0; background: transparent; color: #a9aebe; font-size: 25px; line-height: 1; cursor: pointer; }
+    .detail-sub { color: var(--muted); margin: 4px 0 16px; }
+    .detail-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin: 14px 0; }
+    .field { border: 1px solid var(--border); background: rgba(255,255,255,.025); border-radius: 12px; padding: 10px; }
+    .field b { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 4px; }
+    .status-editor { margin: 17px 0; }
+    .status-editor-title { font-size: 12px; color: var(--muted); font-weight: 800; margin-bottom: 8px; }
+    .status-actions { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 7px; }
+    .status-btn { padding: 9px 7px; font-size: 12px; }
+    .status-btn.active[data-status="have"] { border-color: var(--success); background: rgba(97,208,149,.13); }
+    .status-btn.active[data-status="need"] { border-color: var(--need); background: rgba(255,189,91,.12); }
+    .status-btn.active[data-status="duplicate"] { border-color: var(--trade); background: rgba(94,231,223,.11); }
+    .status-btn.active[data-status="none"] { border-color: #6f7484; background: rgba(255,255,255,.06); }
+    .everyone-status { display: grid; gap: 6px; }
+    .person-status { display: flex; justify-content: space-between; gap: 12px; align-items: center; border-bottom: 1px solid rgba(255,255,255,.055); padding: 7px 0; font-size: 12px; }
+    .person-status:last-child { border-bottom: 0; }
+    .status-pill { border-radius: 999px; padding: 4px 7px; border: 1px solid var(--border); color: var(--muted); font-weight: 800; font-size: 10px; }
+    .status-pill.have { color: #bcf4d3; border-color: rgba(97,208,149,.48); }
+    .status-pill.need { color: #ffdda2; border-color: rgba(255,189,91,.48); }
+    .status-pill.duplicate { color: #bffaf7; border-color: rgba(94,231,223,.50); }
+    .tool-modal { width: min(1100px, 100%); max-height: 90vh; overflow: auto; }
+    .tool-modal h3 { margin-right: 30px; }
+    .compare-wrap { overflow-x: auto; margin-top: 14px; }
+    table.compare { width: 100%; border-collapse: collapse; min-width: 700px; font-size: 12px; }
+    .compare th, .compare td { border-bottom: 1px solid rgba(255,255,255,.07); padding: 9px 8px; text-align: center; }
+    .compare th:first-child, .compare td:first-child { text-align: left; position: sticky; left: 0; background: #11131a; z-index: 1; min-width: 190px; }
+    .compare th { color: #c9ccda; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    .trade-list { display: grid; gap: 9px; margin-top: 14px; }
+    .trade-item { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; border: 1px solid var(--border); border-radius: 13px; padding: 11px; background: rgba(255,255,255,.02); }
+    .trade-card { grid-column: 1 / -1; color: #dfe2eb; font-weight: 900; font-size: 13px; }
+    .trade-person { font-size: 12px; }
+    .trade-arrow { color: var(--trade); font-weight: 900; }
+    .export-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .mobile-bar { display: none; }
+    @media (max-width: 1050px) {
+      .stats { grid-template-columns: repeat(3, minmax(0,1fr)); }
+      .dashboard { grid-template-columns: 1fr 1fr; }
+      .activity-panel { grid-column: 1 / -1; }
+    }
     @media (max-width: 720px) {
+      body { padding-bottom: 82px; }
       .wrap { width: min(100% - 18px, 1480px); }
-      header { padding-top: 24px; }
-      .toolbar { padding: 8px 0; }
-      .save-btn { margin-left: 0; flex: 1; }
-      .stats { grid-template-columns: 1fr; }
-      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-      .card-info { padding: 8px 9px 10px; }
-      .set-btn, .profile-btn { flex: 1 1 calc(50% - 5px); }
+      header { padding-top: 22px; }
+      .toolbar { position: static; }
+      .stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .stat { padding: 11px; }
+      .stat-value { font-size: 18px; }
+      .dashboard { grid-template-columns: 1fr; }
+      .activity-panel { grid-column: auto; }
+      .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .card-info { padding: 8px; }
+      .card-name { font-size: 12px; }
+      .bottom-row .save-btn { display: none; }
+      .card-modal-grid { grid-template-columns: 1fr; }
+      .detail-image { padding: 12px; }
+      .detail-image img { max-height: 46vh; width: auto; max-width: 100%; }
+      .detail-body { padding: 16px; }
+      .detail-fields { grid-template-columns: 1fr 1fr; }
+      .status-actions { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .trade-item { grid-template-columns: 1fr auto 1fr; }
+      .mobile-bar {
+        position: fixed; display: flex; left: 10px; right: 10px; bottom: 10px; z-index: 45;
+        align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px;
+        border: 1px solid #353a49; border-radius: 15px; background: rgba(15,17,24,.94); backdrop-filter: blur(16px);
+        box-shadow: 0 14px 36px rgba(0,0,0,.42);
+      }
+      .mobile-summary { font-size: 12px; font-weight: 850; min-width: 0; }
+      .mobile-summary small { display: block; color: var(--muted); font-weight: 650; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .mobile-bar .save-btn { margin: 0; min-width: 95px; padding: 9px 10px; }
+      .toast { bottom: 82px; }
+    }
+    @media (max-width: 420px) {
+      .stats { grid-template-columns: 1fr 1fr; }
+      .detail-fields { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap">
-      <div class="eyebrow">Shared Pokémon Collections • 2026</div>
-      <h1>Pokémon Collection Checklists</h1>
-      <p class="subtitle">Switch between shared checklists, see what everyone has, and track what is still missing. Viewing is open to the group; editing is protected by each collector’s private PIN.</p>
-    </div>
+  <header class="wrap">
+    <span class="eyebrow">Shared Pokémon collection</span>
+    <h1>Pokémon Checklists</h1>
+    <p class="subtitle">Track what you have, flag what you need, mark duplicates available for trade, compare all four collections, and find trades without exposing anyone’s edit access.</p>
   </header>
 
   <div class="toolbar">
@@ -353,53 +262,72 @@
       <div class="top-row" id="checklists"></div>
       <div class="top-row" id="profiles"></div>
       <div class="bottom-row">
-        <input id="search" class="search" type="search" placeholder="Search by Pokémon or card number…" autocomplete="off" />
+        <input id="search" class="search" type="search" placeholder="Search Pokémon, set or card number…" autocomplete="off" />
         <span id="modeButtons" style="display:contents">
           <button class="seg-btn active" data-mode="pokemon">Pokémon only</button>
           <button class="seg-btn" data-mode="all">Full set</button>
         </span>
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="missing">Missing</button>
-        <button class="filter-btn" data-filter="owned">Owned</button>
+        <button class="filter-btn" data-filter="have">Have</button>
+        <button class="filter-btn" data-filter="need">Need</button>
+        <button class="filter-btn" data-filter="duplicate">Trades</button>
         <button id="authButton" class="utility-btn">Unlock Isabella</button>
-        <button id="save" class="save-btn" hidden>Save checklist</button>
+        <button id="save" class="save-btn" hidden>Save changes</button>
       </div>
     </div>
   </div>
 
   <main class="wrap">
     <section class="stats">
-      <div class="stat">
-        <div class="stat-label">Collector</div>
-        <div class="stat-value" id="collectorStat">Isabella</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Checklist</div>
-        <div class="stat-value" id="checklistStat" style="font-size:18px">Pitch Black</div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Collected</div>
-        <div class="stat-value" id="collectedStat">0 / 95</div>
-        <div class="progress-shell"><div class="progress-bar" id="progressBar"></div></div>
-      </div>
-      <div class="stat">
-        <div class="stat-label">Save status</div>
-        <div class="stat-value" id="saveStatus" style="font-size:16px"><span class="sync-dot" id="syncDot"></span>Loading…</div>
-      </div>
+      <div class="stat"><div class="stat-label">Collector</div><div class="stat-value" id="collectorStat">Isabella</div></div>
+      <div class="stat"><div class="stat-label">Checklist</div><div class="stat-value" id="checklistStat" style="font-size:17px">Pitch Black</div></div>
+      <div class="stat"><div class="stat-label">Collected</div><div class="stat-value" id="collectedStat">0 / 95</div><div class="progress-shell"><div class="progress-bar" id="progressBar"></div></div></div>
+      <div class="stat"><div class="stat-label">Need</div><div class="stat-value" id="needStat">0</div></div>
+      <div class="stat"><div class="stat-label">Trade duplicates</div><div class="stat-value" id="tradeStat">0</div></div>
+      <div class="stat"><div class="stat-label">Save status</div><div class="stat-value" id="saveStatus" style="font-size:14px"><span class="sync-dot" id="syncDot"></span>Loading…</div></div>
     </section>
 
     <div class="access-note" id="accessHint">You are viewing Isabella’s Pitch Black checklist read-only.</div>
+
+    <div class="tool-row">
+      <button class="tool-btn primary" id="missingQuick">🔎 Show My Missing Cards</button>
+      <button class="tool-btn" id="compareButton">👥 Compare Collections</button>
+      <button class="tool-btn trade" id="tradeButton">🔁 Trade Finder</button>
+      <button class="tool-btn" id="backupButton">💾 Backup / Export</button>
+    </div>
+
+    <section class="dashboard">
+      <div class="panel">
+        <div class="panel-head"><h3>Completion breakdown</h3><span class="tiny" id="breakdownHint"></span></div>
+        <div class="breakdown-list" id="breakdown"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Milestones</h3><span class="tiny">Earned automatically</span></div>
+        <div class="badges" id="milestones"></div>
+      </div>
+      <div class="panel activity-panel">
+        <div class="panel-head"><h3>Recent activity</h3><button class="utility-btn" id="refreshActivity" style="padding:6px 9px;font-size:11px">Refresh</button></div>
+        <div class="activity-list" id="activityList"><div class="tiny">No activity yet.</div></div>
+      </div>
+    </section>
 
     <div class="section-title">
       <h2 id="gridTitle">Pokémon cards</h2>
       <div class="hint" id="visibleCount"></div>
     </div>
+    <div class="legend"><span><i class="dot have"></i> Have</span><span><i class="dot need"></i> Need</span><span><i class="dot trade"></i> Duplicate / trade</span><span>Tap any card for details.</span></div>
     <section class="grid" id="grid"></section>
 
     <footer>
       Card artwork is loaded from public Pokémon TCG card-image sources and is used as a visual collection reference. Pokémon and all related names and artwork belong to their respective rights holders. This fan checklist is not affiliated with or endorsed by The Pokémon Company International.
     </footer>
   </main>
+
+  <div class="mobile-bar" id="mobileBar">
+    <div class="mobile-summary" id="mobileSummary">0 / 0<small>Isabella • Pitch Black</small></div>
+    <button id="mobileAction" class="save-btn">Unlock</button>
+  </div>
 
   <div id="authModal" class="modal-backdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
@@ -408,10 +336,36 @@
       <p id="authText">Enter Isabella's PIN to enable editing on this device.</p>
       <input id="pinInput" class="pin-input" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Enter PIN" />
       <div id="authError" class="auth-error"></div>
-      <div class="modal-actions">
-        <button id="authCancel" class="utility-btn">Cancel</button>
-        <button id="unlockSubmit" class="save-btn">Unlock editing</button>
+      <div class="modal-actions"><button id="authCancel" class="utility-btn">Cancel</button><button id="unlockSubmit" class="save-btn">Unlock editing</button></div>
+    </div>
+  </div>
+
+  <div id="cardModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal card-modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <div class="card-modal-grid">
+        <div class="detail-image" id="detailImage"></div>
+        <div class="detail-body">
+          <button class="detail-close" id="detailClose" aria-label="Close">×</button>
+          <h3 id="detailTitle"></h3>
+          <div class="detail-sub" id="detailSub"></div>
+          <div class="detail-fields" id="detailFields"></div>
+          <div class="status-editor">
+            <div class="status-editor-title" id="statusEditorTitle">Your status</div>
+            <div class="status-actions" id="statusActions"></div>
+            <div class="tiny" id="statusHelp" style="margin-top:8px"></div>
+          </div>
+          <div class="status-editor-title">Everyone’s status</div>
+          <div class="everyone-status" id="everyoneStatus"></div>
+        </div>
       </div>
+    </div>
+  </div>
+
+  <div id="toolModal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal tool-modal" role="dialog" aria-modal="true" aria-labelledby="toolTitle">
+      <button class="tool-close" id="toolClose" aria-label="Close">×</button>
+      <h3 id="toolTitle">Collection tools</h3>
+      <div id="toolBody"></div>
     </div>
   </div>
 
@@ -419,435 +373,365 @@
 
   <script>
     const USERS = ["Isabella", "Haley", "Friend 2", "Friend 3?"];
-    const STORAGE_KEY = "pokemon-shared-checklists-v2";
+    const STORAGE_KEY = "pokemon-shared-checklists-v3";
+    const PREV_STORAGE_KEY = "pokemon-shared-checklists-v2";
     const LEGACY_STORAGE_KEY = "pitch-black-checklist-v1";
     const AUTH_STORAGE_KEY = "pitch-black-auth-v1";
+    const DIRTY_STORAGE_KEY = "pokemon-shared-checklists-dirty-v3";
     const API_URL = "/api/pitch-black-checklist";
+    const VALID_STATUSES = new Set(["have", "need", "duplicate"]);
 
     const pitchBlackNames = ["Tropius", "Grubbin", "Fomantis", "Lurantis ex", "Poltchageist", "Sinistcha", "Heatran", "Mega Delphox ex", "Sizzlipede", "Centiskorch", "Charcadet", "Armarouge", "Goldeen", "Seaking", "Wailmer", "Wailord ex", "Relicanth", "Popplio", "Brionne", "Primarina", "Finizen", "Palafin", "Electrike", "Manectric", "Charjabug", "Vikavolt", "Mega Zeraora ex", "Miraidon", "Slowpoke", "Slowbro", "Mega Slowbro ex", "Jynx", "Shuppet", "Banette", "Spiritomb", "Litwick", "Lampent", "Mega Chandelure ex", "Dhelmise", "Marshadow", "Annihilape", "Mankey", "Primeape", "Cranidos", "Rampardos ex", "Drilbur", "Koraidon", "Mega Darkrai ex", "Vullaby", "Mandibuzz", "Inkay", "Malamar", "Nickit", "Thievul", "Morpeko ex", "Zarude", "Maschiff", "Mabosstiff", "Chi-Yu", "Skarmory", "Shieldon", "Bastiodon", "Bronzor", "Bronzong", "Mega Excadrill ex", "Pikipek", "Trumbeak", "Toucannon", "Type: Null", "Silvally", "Bombirdier", "Antique Armor Fossil", "Antique Skull Fossil", "Backtrack Badge", "Dark Bell", "Fossil Quarry", "Gladion's Final Battle", "Gwynn", "Jett", "Misty's Vitality", "Rust Syndicate Grunt", "Tremendous Bomb", "Shadowy Darkness Energy", "Voltaic Lightning Energy", "Fomantis", "Armarouge", "Goldeen", "Primarina", "Manectric", "Slowbro", "Dhelmise", "Thievul", "Bastiodon", "Toucannon", "Silvally", "Lurantis ex", "Wailord ex", "Mega Zeraora ex", "Mega Chandelure ex", "Rampardos ex", "Mega Darkrai ex", "Morpeko ex", "Mega Excadrill ex", "Brave Bangle", "Crushing Hammer", "Dark Bell", "Energy Switch", "Gladion's Final Battle", "Gwynn", "Iron Defender", "Misty's Vitality", "Rust Syndicate Grunt", "Tremendous Bomb", "Mega Zeraora ex", "Mega Chandelure ex", "Mega Darkrai ex", "Morpeko ex", "Gladion's Final Battle", "Gwynn", "Mega Darkrai ex"];
     const pitchBlackNonPokemon = new Set([72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 118, 119]);
-
     const pitchBlackCards = pitchBlackNames.map((name, index) => {
       const number = index + 1;
       const id = String(number).padStart(3, "0");
       return {
-        id,
-        number,
-        name,
-        set: "Pitch Black",
-        displayNumber: `#${id}/084`,
+        id, number, name, set: "Pitch Black", displayNumber: `#${id}/084`, year: 2026,
         pokemon: !pitchBlackNonPokemon.has(number),
+        printType: name.toLowerCase().includes("ex") ? "Pokémon ex" : (number > 84 ? "Special-number print" : (pitchBlackNonPokemon.has(number) ? "Trainer / Energy" : "Standard set card")),
+        rarity: "Not cataloged",
         images: [`https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/PBL/PBL_${id}_R_EN.png`]
       };
     });
 
+    const SET_YEARS = {
+      "BW Black Star Promos": 2011, "McDonald's Collection 2011": 2011, "McDonald's Collection 2021": 2021,
+      "Black & White": 2011, "Legendary Treasures": 2013, "Boundaries Crossed": 2012, "Cosmic Eclipse": 2019,
+      "Battle Styles": 2021, "SWSH Black Star Promos": 2021, "White Flare": 2025, "Ascended Heroes": 2026,
+      "MEP Black Star Promos": 2026, "McDonald's Collection 2012": 2012, "Next Destinies": 2012, "BREAKpoint": 2016
+    };
+    function inferPrintType(card) {
+      if (card.set.includes("Black Star Promos")) return "Promo";
+      const parts = String(card.number).split("/").map(Number);
+      if (parts.length === 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]) && parts[0] > parts[1]) return "Secret / special print";
+      if (card.name.toLowerCase().includes("ex")) return "Pokémon ex";
+      return "Standard set card";
+    }
     const tepigLineCards = [{"id":"tepig-bwp-bw02","name":"Tepig","set":"BW Black Star Promos","number":"BW02","images":["https://images.pokemontcg.io/bwp/BW02_hires.png"]},{"id":"tepig-mcd11-3","name":"Tepig","set":"McDonald's Collection 2011","number":"3/12","images":["https://images.pokemontcg.io/mcd11/3_hires.png"]},{"id":"tepig-mcd21-13","name":"Tepig","set":"McDonald's Collection 2021","number":"13/25","images":["https://images.pokemontcg.io/mcd21/13_hires.png"]},{"id":"tepig-bw1-15","name":"Tepig","set":"Black & White","number":"15/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_015_R_EN.png","https://images.pokemontcg.io/bw1/15_hires.png"]},{"id":"tepig-bw1-16","name":"Tepig","set":"Black & White","number":"16/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_016_R_EN.png","https://images.pokemontcg.io/bw1/16_hires.png"]},{"id":"tepig-bw11-25","name":"Tepig","set":"Legendary Treasures","number":"25/113","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/LTR/LTR_025_R_EN.png","https://images.pokemontcg.io/bw11/25_hires.png"]},{"id":"tepig-bwp-bw07","name":"Tepig","set":"BW Black Star Promos","number":"BW07","images":["https://images.pokemontcg.io/bwp/BW07_hires.png"]},{"id":"tepig-bw7-24","name":"Tepig","set":"Boundaries Crossed","number":"24/149","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BCR/BCR_024_R_EN.png","https://images.pokemontcg.io/bw7/24_hires.png"]},{"id":"tepig-sm12-31","name":"Tepig","set":"Cosmic Eclipse","number":"31/236","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/CEC/CEC_031_R_EN.png","https://images.pokemontcg.io/sm12/31_hires.png"]},{"id":"tepig-swsh5-23","name":"Tepig","set":"Battle Styles","number":"23/163","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BST/BST_023_R_EN.png","https://images.pokemontcg.io/swsh5/23_hires.png"]},{"id":"tepig-swshp-swsh172","name":"Tepig","set":"SWSH Black Star Promos","number":"SWSH172","images":["https://images.pokemontcg.io/swshp/SWSH172_hires.png"]},{"id":"tepig-wht-11","name":"Tepig","set":"White Flare","number":"11/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_011_R_EN.png"]},{"id":"tepig-wht-96","name":"Tepig","set":"White Flare","number":"96/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_096_R_EN.png"]},{"id":"tepig-asc-29","name":"Tepig","set":"Ascended Heroes","number":"29/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_029_R_EN.png"]},{"id":"tepig-mep-50","name":"Tepig","set":"MEP Black Star Promos","number":"050","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/MEP/MEP_050_R_EN.png"]},{"id":"pignite-bw1-17","name":"Pignite","set":"Black & White","number":"17/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_017_R_EN.png","https://images.pokemontcg.io/bw1/17_hires.png"]},{"id":"pignite-mcd12-4","name":"Pignite","set":"McDonald's Collection 2012","number":"4/12","images":["https://images.pokemontcg.io/mcd12/4_hires.png"]},{"id":"pignite-bw1-18","name":"Pignite","set":"Black & White","number":"18/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_018_R_EN.png","https://images.pokemontcg.io/bw1/18_hires.png"]},{"id":"pignite-bw11-26","name":"Pignite","set":"Legendary Treasures","number":"26/113","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/LTR/LTR_026_R_EN.png","https://images.pokemontcg.io/bw11/26_hires.png"]},{"id":"pignite-bw7-25","name":"Pignite","set":"Boundaries Crossed","number":"25/149","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BCR/BCR_025_R_EN.png","https://images.pokemontcg.io/bw7/25_hires.png"]},{"id":"pignite-sm12-32","name":"Pignite","set":"Cosmic Eclipse","number":"32/236","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/CEC/CEC_032_R_EN.png","https://images.pokemontcg.io/sm12/32_hires.png"]},{"id":"pignite-swsh5-24","name":"Pignite","set":"Battle Styles","number":"24/163","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BST/BST_024_R_EN.png","https://images.pokemontcg.io/swsh5/24_hires.png"]},{"id":"pignite-wht-12","name":"Pignite","set":"White Flare","number":"12/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_012_R_EN.png"]},{"id":"pignite-wht-97","name":"Pignite","set":"White Flare","number":"97/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_097_R_EN.png"]},{"id":"pignite-asc-30","name":"Pignite","set":"Ascended Heroes","number":"30/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_030_R_EN.png"]},{"id":"emboar-bw1-19","name":"Emboar","set":"Black & White","number":"19/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_019_R_EN.png","https://images.pokemontcg.io/bw1/19_hires.png"]},{"id":"emboar-bw1-20","name":"Emboar","set":"Black & White","number":"20/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_020_R_EN.png","https://images.pokemontcg.io/bw1/20_hires.png"]},{"id":"emboar-bwp-bw21","name":"Emboar","set":"BW Black Star Promos","number":"BW21","images":["https://images.pokemontcg.io/bwp/BW21_hires.png"]},{"id":"emboar-bw4-100","name":"Emboar","set":"Next Destinies","number":"100/99","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/NXD/NXD_100_R_EN.png","https://images.pokemontcg.io/bw4/100_hires.png"]},{"id":"emboar-bw11-27","name":"Emboar","set":"Legendary Treasures","number":"27/113","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/LTR/LTR_027_R_EN.png","https://images.pokemontcg.io/bw11/27_hires.png"]},{"id":"emboar-bw7-26","name":"Emboar","set":"Boundaries Crossed","number":"26/149","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BCR/BCR_026_R_EN.png","https://images.pokemontcg.io/bw7/26_hires.png"]},{"id":"emboar-sm12-33","name":"Emboar","set":"Cosmic Eclipse","number":"33/236","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/CEC/CEC_033_R_EN.png","https://images.pokemontcg.io/sm12/33_hires.png"]},{"id":"emboar-swsh5-25","name":"Emboar","set":"Battle Styles","number":"25/163","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BST/BST_025_R_EN.png","https://images.pokemontcg.io/swsh5/25_hires.png"]},{"id":"emboar-wht-13","name":"Emboar","set":"White Flare","number":"13/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_013_R_EN.png"]},{"id":"emboar-wht-98","name":"Emboar","set":"White Flare","number":"98/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_098_R_EN.png"]},{"id":"emboar-xy9-14","name":"Emboar","set":"BREAKpoint","number":"14/122","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BKP/BKP_014_R_EN.png","https://images.pokemontcg.io/xy9/14_hires.png"]},{"id":"mega-emboar-asc-31","name":"Mega Emboar ex","set":"Ascended Heroes","number":"31/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_031_R_EN.png"]},{"id":"mega-emboar-asc-273","name":"Mega Emboar ex","set":"Ascended Heroes","number":"273/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_273_R_EN.png"]},{"id":"mega-emboar-mep-35","name":"Mega Emboar ex","set":"MEP Black Star Promos","number":"035","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/MEP/MEP_035_R_EN.png"]}].map(card => ({
-      ...card,
-      displayNumber: card.number,
-      pokemon: true
+      ...card, displayNumber: card.number, pokemon: true, year: SET_YEARS[card.set] || "—", printType: inferPrintType(card), rarity: card.set.includes("Black Star Promos") ? "Promo" : (inferPrintType(card) === "Secret / special print" ? "Secret / special" : "Not cataloged")
     }));
 
     const CHECKLISTS = {
-      "pitch-black": {
-        id: "pitch-black",
-        label: "Pitch Black",
-        title: "Pitch Black",
-        description: "2026 Pitch Black set",
-        cards: pitchBlackCards,
-        supportsPokemonOnly: true
-      },
-      "tepig-line": {
-        id: "tepig-line",
-        label: "Tepig • Pignite • Emboar",
-        title: "Tepig / Pignite / Emboar",
-        description: "English physical TCG printings",
-        cards: tepigLineCards,
-        supportsPokemonOnly: false
-      }
+      "pitch-black": { id: "pitch-black", label: "Pitch Black", title: "Pitch Black", description: "2026 Pitch Black set", cards: pitchBlackCards, supportsPokemonOnly: true },
+      "tepig-line": { id: "tepig-line", label: "Tepig • Pignite • Emboar", title: "Tepig / Pignite / Emboar", description: "English physical TCG printings", cards: tepigLineCards, supportsPokemonOnly: false }
     };
 
-    let activeChecklist = "pitch-black";
-    let activeUser = "Isabella";
-    let displayMode = "pokemon";
-    let filter = "all";
-    let search = "";
-    let state = loadLocal();
+    const $ = selector => document.querySelector(selector);
+    const gridEl = $("#grid"), checklistsEl = $("#checklists"), profilesEl = $("#profiles"), toastEl = $("#toast");
+    const authModal = $("#authModal"), pinInput = $("#pinInput"), authError = $("#authError");
+    const cardModal = $("#cardModal"), toolModal = $("#toolModal");
+    let activeChecklist = "pitch-black", activeUser = "Isabella", displayMode = "pokemon", filter = "all", search = "";
+    let cloudAvailable = false, authBusy = false, modalCardId = null;
+    let dirty = loadDirty();
+    let activityByChecklist = { "pitch-black": [], "tepig-line": [] };
+    let state = loadState();
     let authTokens = loadAuthTokens();
-    let cloudAvailable = false;
-    let authBusy = false;
 
-    const $ = (s) => document.querySelector(s);
-    const checklistsEl = $("#checklists");
-    const profilesEl = $("#profiles");
-    const gridEl = $("#grid");
-    const toastEl = $("#toast");
-    const authModal = $("#authModal");
-    const pinInput = $("#pinInput");
-    const authError = $("#authError");
-
-    function checklist() { return CHECKLISTS[activeChecklist]; }
-    function cards() { return checklist().cards; }
-
-    function blankUserState() {
-      return Object.fromEntries(USERS.map(u => [u, { owned: [], lastSaved: null }]));
+    function blankRecord() { return { statuses: {}, lastSaved: null }; }
+    function defaultState() { return Object.fromEntries(Object.keys(CHECKLISTS).map(cid => [cid, Object.fromEntries(USERS.map(u => [u, blankRecord()]))])); }
+    function normalizeStatuses(rawStatuses, owned) {
+      const out = {};
+      if (rawStatuses && typeof rawStatuses === "object" && !Array.isArray(rawStatuses)) {
+        for (const [id, value] of Object.entries(rawStatuses)) if (VALID_STATUSES.has(value)) out[String(id)] = value;
+      } else if (Array.isArray(owned)) {
+        for (const id of owned) out[String(id)] = "have";
+      }
+      return out;
     }
-
-    function blankState() {
-      return Object.fromEntries(Object.keys(CHECKLISTS).map(id => [id, blankUserState()]));
+    function mergeStored(base, parsed) {
+      if (!parsed || typeof parsed !== "object") return;
+      for (const cid of Object.keys(CHECKLISTS)) {
+        for (const user of USERS) {
+          const rec = parsed?.[cid]?.[user];
+          if (!rec) continue;
+          base[cid][user] = { statuses: normalizeStatuses(rec.statuses, rec.owned), lastSaved: rec.lastSaved || null };
+        }
+      }
     }
-
-    function loadLocal() {
-      const base = blankState();
-      try {
-        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        if (parsed && typeof parsed === "object") {
-          for (const checklistId of Object.keys(CHECKLISTS)) {
-            for (const u of USERS) {
-              if (parsed?.[checklistId]?.[u]) {
-                base[checklistId][u].owned = Array.isArray(parsed[checklistId][u].owned)
-                  ? parsed[checklistId][u].owned.map(String)
-                  : [];
-                base[checklistId][u].lastSaved = parsed[checklistId][u].lastSaved || null;
-              }
-            }
-          }
-          return base;
-        }
-      } catch {}
-
-      // Migrate the old browser-only Pitch Black data for Isabella if present.
-      try {
-        const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "null");
-        if (legacy?.Isabella) {
-          base["pitch-black"].Isabella.owned = Array.isArray(legacy.Isabella.owned)
-            ? legacy.Isabella.owned.map(String)
-            : [];
-          base["pitch-black"].Isabella.lastSaved = legacy.Isabella.lastSaved || null;
-        }
-      } catch {}
+    function loadState() {
+      const base = defaultState();
+      try { mergeStored(base, JSON.parse(localStorage.getItem(STORAGE_KEY) || "null")); } catch {}
+      const hasCurrent = localStorage.getItem(STORAGE_KEY);
+      if (!hasCurrent) {
+        try { mergeStored(base, JSON.parse(localStorage.getItem(PREV_STORAGE_KEY) || "null")); } catch {}
+        try {
+          const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "null");
+          if (legacy?.Isabella) base["pitch-black"].Isabella = { statuses: normalizeStatuses(null, legacy.Isabella.owned), lastSaved: legacy.Isabella.lastSaved || null };
+        } catch {}
+      }
       return base;
     }
-
-    function writeLocal() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function loadAuthTokens() {
-      try {
-        const parsed = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "{}");
-        return parsed && typeof parsed === "object" ? parsed : {};
-      } catch { return {}; }
-    }
-
-    function writeAuthTokens() {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authTokens));
-    }
-
-    function isUnlocked(user = activeUser) {
-      return typeof authTokens[user] === "string" && authTokens[user].length > 20;
-    }
-
-    function ownedSet() {
-      return new Set(state[activeChecklist]?.[activeUser]?.owned || []);
-    }
+    function writeLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function loadAuthTokens() { try { const p = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "{}"); return p && typeof p === "object" ? p : {}; } catch { return {}; } }
+    function writeAuthTokens() { localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authTokens)); }
+    function loadDirty() { try { const p = JSON.parse(localStorage.getItem(DIRTY_STORAGE_KEY) || "[]"); return new Set(Array.isArray(p) ? p : []); } catch { return new Set(); } }
+    function writeDirty() { localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify([...dirty])); }
+    function checklist(id = activeChecklist) { return CHECKLISTS[id]; }
+    function cards(id = activeChecklist) { return checklist(id).cards; }
+    function cardById(cid, cardId) { return cards(cid).find(c => c.id === cardId); }
+    function record(cid = activeChecklist, user = activeUser) { return state[cid][user]; }
+    function statusOf(cardId, user = activeUser, cid = activeChecklist) { return state[cid]?.[user]?.statuses?.[cardId] || "none"; }
+    function collected(status) { return status === "have" || status === "duplicate"; }
+    function isUnlocked(user = activeUser) { return typeof authTokens[user] === "string" && authTokens[user].length > 20; }
+    function dirtyKey(cid = activeChecklist, user = activeUser) { return `${cid}|${user}`; }
+    function isDirty(cid = activeChecklist, user = activeUser) { return dirty.has(dirtyKey(cid, user)); }
+    function scopeCards(cid = activeChecklist) { const all = cards(cid); return checklist(cid).supportsPokemonOnly && displayMode === "pokemon" ? all.filter(c => c.pokemon) : all; }
+    function esc(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])); }
+    function statusLabel(s) { return ({ none: "Unmarked", have: "Have", need: "Need", duplicate: "Duplicate / trade" })[s] || "Unmarked"; }
+    function statusShort(s) { return ({ none: "—", have: "HAVE", need: "NEED", duplicate: "TRADE" })[s] || "—"; }
 
     function renderChecklists() {
-      checklistsEl.innerHTML = Object.values(CHECKLISTS).map(item => `
-        <button class="set-btn ${item.id === activeChecklist ? "active" : ""}" data-checklist="${item.id}">
-          ${item.label}
-        </button>
-      `).join("");
-
+      checklistsEl.innerHTML = Object.values(CHECKLISTS).map(item => `<button class="set-btn ${item.id === activeChecklist ? "active" : ""}" data-checklist="${item.id}">${esc(item.label)}</button>`).join("");
       checklistsEl.querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => {
-        activeChecklist = btn.dataset.checklist;
-        displayMode = checklist().supportsPokemonOnly ? "pokemon" : "all";
-        search = "";
-        $("#search").value = "";
-        filter = "all";
+        activeChecklist = btn.dataset.checklist; displayMode = checklist().supportsPokemonOnly ? "pokemon" : "all"; search = ""; filter = "all"; $("#search").value = "";
         document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filter === "all"));
-        renderChecklists();
-        render();
-        await loadCloudUser(activeUser);
-        render();
+        renderAll(); await refreshCloud(activeChecklist); renderAll();
       }));
     }
-
     function renderProfiles() {
-      profilesEl.innerHTML = USERS.map(u => {
-        const unlocked = isUnlocked(u);
-        return `<button class="profile-btn ${u === activeUser ? "active" : ""}" data-user="${u}">${u}${unlocked ? " <span title=\"Editing unlocked\">✓</span>" : ""}</button>`;
-      }).join("");
-
-      profilesEl.querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => {
-        activeUser = btn.dataset.user;
-        renderProfiles();
-        render();
-        await loadCloudUser(activeUser);
-        render();
-      }));
+      profilesEl.innerHTML = USERS.map(u => `<button class="profile-btn ${u === activeUser ? "active" : ""}" data-user="${esc(u)}">${esc(u)}${isUnlocked(u) ? " ✓" : ""}</button>`).join("");
+      profilesEl.querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => { activeUser = btn.dataset.user; renderAll(); await refreshCloud(activeChecklist); renderAll(); }));
     }
-
     function filteredCards() {
-      const owned = ownedSet();
+      const q = search.toLowerCase();
       return cards().filter(c => {
         if (checklist().supportsPokemonOnly && displayMode === "pokemon" && !c.pokemon) return false;
-        if (filter === "owned" && !owned.has(c.id)) return false;
-        if (filter === "missing" && owned.has(c.id)) return false;
-        if (search) {
-          const hay = `${c.name} ${c.id} ${c.set} ${c.displayNumber}`.toLowerCase();
-          if (!hay.includes(search.toLowerCase())) return false;
-        }
+        const s = statusOf(c.id);
+        if (filter === "missing" && collected(s)) return false;
+        if (filter === "have" && s !== "have") return false;
+        if (filter === "need" && s !== "need") return false;
+        if (filter === "duplicate" && s !== "duplicate") return false;
+        if (q && !`${c.name} ${c.id} ${c.set} ${c.displayNumber}`.toLowerCase().includes(q)) return false;
         return true;
       });
     }
-
-    function attachImageFallbacks() {
-      gridEl.querySelectorAll("img[data-fallbacks]").forEach(img => {
-        const fallbacks = (img.dataset.fallbacks || "").split("||").filter(Boolean);
-        img.addEventListener("error", function handleError() {
-          if (fallbacks.length) {
-            img.src = fallbacks.shift();
-            return;
-          }
-          img.style.display = "none";
-          const fallback = img.nextElementSibling;
-          if (fallback) fallback.style.display = "flex";
+    function attachImageFallbacks(root = document) {
+      root.querySelectorAll("img[data-fallbacks]").forEach(img => {
+        if (img.dataset.boundFallback === "1") return;
+        img.dataset.boundFallback = "1";
+        let fallbacks = (img.dataset.fallbacks || "").split("||").filter(Boolean);
+        img.addEventListener("error", () => {
+          if (fallbacks.length) { img.src = fallbacks.shift(); return; }
+          img.style.display = "none"; const fallback = img.nextElementSibling; if (fallback?.classList.contains("fallback")) fallback.style.display = "flex";
         });
       });
     }
-
-    function render() {
-      const owned = ownedSet();
-      const visible = filteredCards();
-      const allCards = cards();
-      const scope = checklist().supportsPokemonOnly && displayMode === "pokemon"
-        ? allCards.filter(c => c.pokemon)
-        : allCards;
-      const have = scope.filter(c => owned.has(c.id)).length;
-      const pct = scope.length ? Math.round((have / scope.length) * 100) : 0;
-      const unlocked = isUnlocked();
-
-      $("#collectorStat").textContent = activeUser;
-      $("#checklistStat").textContent = checklist().title;
-      $("#collectedStat").textContent = `${have} / ${scope.length}`;
-      $("#progressBar").style.width = `${pct}%`;
-      $("#gridTitle").textContent = activeChecklist === "pitch-black"
-        ? (displayMode === "pokemon" ? "Pokémon cards" : "Full 120-card set")
-        : "Tepig, Pignite & Emboar cards";
-      $("#visibleCount").textContent = `${visible.length} shown • ${pct}% complete`;
-
-      const modeButtons = $("#modeButtons");
-      modeButtons.style.display = checklist().supportsPokemonOnly ? "contents" : "none";
-      document.querySelectorAll(".seg-btn").forEach(b =>
-        b.classList.toggle("active", b.dataset.mode === displayMode)
-      );
-
-      const authBtn = $("#authButton");
-      authBtn.textContent = unlocked ? `Lock ${activeUser}` : `Unlock ${activeUser}`;
-      authBtn.classList.toggle("unlocked", unlocked);
-      $("#save").hidden = !unlocked;
-
-      const last = state[activeChecklist]?.[activeUser]?.lastSaved;
-      const accessText = unlocked ? "Editing enabled" : "Read-only";
+    function renderStats() {
+      const scope = scopeCards();
+      const statuses = scope.map(c => statusOf(c.id));
+      const have = statuses.filter(collected).length, need = statuses.filter(s => s === "need").length, trades = statuses.filter(s => s === "duplicate").length;
+      const pct = scope.length ? Math.round(have / scope.length * 100) : 0;
+      $("#collectorStat").textContent = activeUser; $("#checklistStat").textContent = checklist().title; $("#collectedStat").textContent = `${have} / ${scope.length}`;
+      $("#needStat").textContent = need; $("#tradeStat").textContent = trades; $("#progressBar").style.width = `${pct}%`;
+      const unlocked = isUnlocked(), last = record().lastSaved, dirtyNow = isDirty();
       const syncText = cloudAvailable ? "Cloud sync ready" : "Cloud sync unavailable";
-      $("#saveStatus").innerHTML = `<span class="sync-dot ${cloudAvailable ? "cloud" : ""}"></span>${accessText}<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:3px">${syncText}${last ? ` • Last save: ${new Date(last).toLocaleString()}` : ""}</div>`;
-      $("#accessHint").textContent = unlocked
-        ? `You can edit ${activeUser}'s ${checklist().title} checklist on this device.`
-        : `You are viewing ${activeUser}'s ${checklist().title} checklist read-only. Unlock with ${activeUser}'s PIN to make changes.`;
-
-      if (!visible.length) {
-        gridEl.innerHTML = `<div class="empty">No cards match this view.</div>`;
-        return;
+      $("#saveStatus").innerHTML = `<span class="sync-dot ${cloudAvailable ? "cloud" : ""}"></span>${dirtyNow ? "Unsaved changes" : (unlocked ? "Editing enabled" : "Read-only")}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:3px">${syncText}${last ? ` • ${new Date(last).toLocaleString()}` : ""}</div>`;
+      $("#accessHint").textContent = unlocked ? `Editing ${activeUser}'s ${checklist().title} checklist. Changes stay local until you press Save changes.` : `You are viewing ${activeUser}'s ${checklist().title} checklist read-only. Anyone can view; only ${activeUser} can unlock and save changes.`;
+      $("#missingQuick").textContent = `🔎 Show ${activeUser}\'s Missing Cards`;
+      const authBtn = $("#authButton"); authBtn.textContent = unlocked ? `Lock ${activeUser}` : `Unlock ${activeUser}`; authBtn.classList.toggle("unlocked", unlocked);
+      const save = $("#save"); save.hidden = !unlocked; save.disabled = !dirtyNow; save.classList.toggle("dirty", dirtyNow); save.textContent = dirtyNow ? "Save changes" : "Saved";
+      $("#mobileSummary").innerHTML = `${have} / ${scope.length} • ${pct}%<small>${esc(activeUser)} • ${esc(checklist().title)}${dirtyNow ? " • Unsaved" : ""}</small>`;
+      const mobileAction = $("#mobileAction"); mobileAction.textContent = unlocked ? (dirtyNow ? "Save" : "Saved") : "Unlock"; mobileAction.disabled = unlocked && !dirtyNow;
+      return { scope, have, need, trades, pct };
+    }
+    function breakdownGroups() {
+      if (activeChecklist === "tepig-line") {
+        const names = ["Tepig", "Pignite", "Emboar", "Mega Emboar ex"];
+        return names.map(name => ({ name, cards: cards().filter(c => c.name === name) }));
       }
-
-      gridEl.innerHTML = visible.map(c => `
-        <article class="card ${owned.has(c.id) ? "owned" : ""} ${unlocked ? "" : "locked"}" data-id="${c.id}" tabindex="0" role="checkbox" aria-readonly="${!unlocked}" aria-checked="${owned.has(c.id)}" aria-label="${c.name} ${c.displayNumber}">
-          <div class="card-image-wrap">
-            <img src="${c.images[0]}" data-fallbacks="${c.images.slice(1).join("||")}" alt="${c.name} ${c.set} ${c.displayNumber}" loading="lazy" decoding="async" />
-            <div class="fallback">${c.name}<br>${c.displayNumber}</div>
-            <div class="owned-badge">✓</div>
-            ${!unlocked ? `<div class="read-badge">VIEW</div>` : ""}
-          </div>
-          <div class="card-info">
-            <div class="card-name">${c.name}</div>
-            <div class="card-meta"><span>${c.displayNumber}</span><span class="kind">${activeChecklist === "pitch-black" ? (c.pokemon ? "Pokémon" : "Trainer / Energy") : c.set}</span></div>
-          </div>
-        </article>
-      `).join("");
-
-      attachImageFallbacks();
-
+      const all = cards();
+      return [
+        { name: "Pokémon cards", cards: all.filter(c => c.pokemon) },
+        { name: "Trainer / Energy", cards: all.filter(c => !c.pokemon) },
+        { name: "Special-number prints", cards: all.filter(c => c.number > 84) }
+      ];
+    }
+    function renderBreakdown() {
+      const groups = breakdownGroups();
+      $("#breakdownHint").textContent = activeChecklist === "tepig-line" ? "By evolution" : "By card group";
+      $("#breakdown").innerHTML = groups.map(g => {
+        const count = g.cards.filter(c => collected(statusOf(c.id))).length; const pct = g.cards.length ? Math.round(count / g.cards.length * 100) : 0;
+        return `<div class="break-row"><div class="break-name">${esc(g.name)}</div><div class="break-count">${count} / ${g.cards.length}</div><div class="mini-progress"><span style="width:${pct}%"></span></div></div>`;
+      }).join("");
+    }
+    function milestoneData() {
+      const scope = scopeCards(); const count = scope.filter(c => collected(statusOf(c.id))).length; const pct = scope.length ? count / scope.length * 100 : 0;
+      const items = [
+        ["🔥 25%", pct >= 25], ["⭐ 50%", pct >= 50], ["💎 75%", pct >= 75], ["🚀 90%", pct >= 90], ["🏆 Complete", pct >= 100]
+      ];
+      if (activeChecklist === "tepig-line") {
+        for (const name of ["Tepig", "Pignite", "Emboar", "Mega Emboar ex"]) {
+          const group = cards().filter(c => c.name === name); items.push([`🐷 All ${name}`, group.length > 0 && group.every(c => collected(statusOf(c.id)))]);
+        }
+      } else {
+        const pokemon = cards().filter(c => c.pokemon); items.push(["⚡ All Pokémon", pokemon.every(c => collected(statusOf(c.id)))]); items.push(["👑 Full 120", cards().every(c => collected(statusOf(c.id)))]);
+      }
+      return items;
+    }
+    function renderMilestones() { $("#milestones").innerHTML = milestoneData().map(([label, earned]) => `<span class="milestone ${earned ? "earned" : ""}">${label}</span>`).join(""); }
+    function activityText(entry) {
+      const c = cardById(entry.checklist, entry.cardId); const name = c ? `${c.name} ${c.displayNumber}` : entry.cardId;
+      if (entry.to === "none") return `<b>${esc(entry.user)}</b> cleared ${esc(name)}`;
+      return `<b>${esc(entry.user)}</b> marked ${esc(name)} as <b>${esc(statusLabel(entry.to))}</b>`;
+    }
+    function renderActivity() {
+      const list = activityByChecklist[activeChecklist] || [];
+      $("#activityList").innerHTML = list.length ? list.slice(0, 10).map(a => `<div class="activity-item">${activityText(a)}<div class="activity-time">${new Date(a.at).toLocaleString()}</div></div>`).join("") : `<div class="tiny">No saved activity yet. New changes will appear here after someone saves.</div>`;
+    }
+    function renderGrid() {
+      const visible = filteredCards();
+      $("#gridTitle").textContent = activeChecklist === "pitch-black" ? (displayMode === "pokemon" ? "Pokémon cards" : "Full 120-card set") : "Tepig, Pignite & Emboar cards";
+      const scope = scopeCards(); const have = scope.filter(c => collected(statusOf(c.id))).length; const pct = scope.length ? Math.round(have / scope.length * 100) : 0;
+      $("#visibleCount").textContent = `${visible.length} shown • ${pct}% complete`;
+      $("#modeButtons").style.display = checklist().supportsPokemonOnly ? "contents" : "none";
+      document.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === displayMode));
+      if (!visible.length) { gridEl.innerHTML = `<div class="empty">No cards match this view.</div>`; return; }
+      gridEl.innerHTML = visible.map(c => {
+        const s = statusOf(c.id); const cls = s === "none" ? "" : `status-${s}`;
+        return `<article class="card ${cls}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="Open ${esc(c.name)} ${esc(c.displayNumber)} details. ${esc(statusLabel(s))}.">
+          <div class="card-image-wrap"><img src="${esc(c.images[0])}" data-fallbacks="${esc(c.images.slice(1).join("||"))}" alt="${esc(c.name)} ${esc(c.set)} ${esc(c.displayNumber)}" loading="lazy" decoding="async" /><div class="fallback">${esc(c.name)}<br>${esc(c.displayNumber)}</div>
+          <div class="status-badge have">HAVE</div><div class="status-badge need">NEED</div><div class="status-badge duplicate">TRADE</div>${!isUnlocked() ? `<div class="read-badge">VIEW</div>` : ""}</div>
+          <div class="card-info"><div class="card-name">${esc(c.name)}</div><div class="card-meta"><span>${esc(c.displayNumber)}</span><span class="kind">${esc(activeChecklist === "pitch-black" ? (c.pokemon ? "Pokémon" : "Trainer / Energy") : c.set)}</span></div></div>
+        </article>`;
+      }).join("");
+      attachImageFallbacks(gridEl);
       gridEl.querySelectorAll(".card").forEach(el => {
-        const toggle = () => toggleCard(el.dataset.id);
-        el.addEventListener("click", toggle);
-        el.addEventListener("keydown", e => {
-          if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle(); }
-        });
+        const open = () => openCardModal(el.dataset.id);
+        el.addEventListener("click", open); el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
       });
     }
+    function renderAll() { renderChecklists(); renderProfiles(); renderStats(); renderBreakdown(); renderMilestones(); renderActivity(); renderGrid(); if (modalCardId && cardModal.classList.contains("show")) renderCardModal(); }
 
-    function toggleCard(id) {
-      if (!isUnlocked()) {
-        openAuthModal();
-        return;
-      }
-      const set = ownedSet();
-      if (set.has(id)) set.delete(id); else set.add(id);
-      state[activeChecklist][activeUser].owned = [...set].sort();
-      writeLocal();
-      render();
+    function setStatus(cardId, nextStatus) {
+      if (!isUnlocked()) { closeCardModal(); openAuthModal(); return; }
+      if (nextStatus !== "none" && !VALID_STATUSES.has(nextStatus)) return;
+      const statuses = record().statuses;
+      if (nextStatus === "none") delete statuses[cardId]; else statuses[cardId] = nextStatus;
+      dirty.add(dirtyKey()); writeDirty(); writeLocal(); renderAll();
+    }
+    function openCardModal(cardId) { modalCardId = cardId; renderCardModal(); cardModal.classList.add("show"); cardModal.setAttribute("aria-hidden", "false"); }
+    function closeCardModal() { cardModal.classList.remove("show"); cardModal.setAttribute("aria-hidden", "true"); modalCardId = null; }
+    function renderCardModal() {
+      const c = cardById(activeChecklist, modalCardId); if (!c) return closeCardModal();
+      $("#detailTitle").textContent = c.name; $("#detailSub").textContent = `${c.set} • ${c.displayNumber}`;
+      $("#detailImage").innerHTML = `<img src="${esc(c.images[0])}" data-fallbacks="${esc(c.images.slice(1).join("||"))}" alt="${esc(c.name)}" /><div class="fallback">${esc(c.name)}<br>${esc(c.displayNumber)}</div>`;
+      attachImageFallbacks($("#detailImage"));
+      $("#detailFields").innerHTML = `<div class="field"><b>Set</b>${esc(c.set)}</div><div class="field"><b>Card number</b>${esc(c.displayNumber)}</div><div class="field"><b>Year</b>${esc(c.year ?? "—")}</div><div class="field"><b>Print type</b>${esc(c.printType || "—")}</div><div class="field"><b>Rarity</b>${esc(c.rarity || "Not cataloged")}</div><div class="field"><b>${esc(activeUser)} status</b>${esc(statusLabel(statusOf(c.id)))}</div>`;
+      const current = statusOf(c.id); $("#statusEditorTitle").textContent = `${activeUser}'s status`;
+      $("#statusActions").innerHTML = [
+        ["none","Clear"], ["need","⭐ Need"], ["have","✓ Have"], ["duplicate","🔁 Duplicate"]
+      ].map(([s,label]) => `<button class="status-btn ${current === s ? "active" : ""}" data-status="${s}" ${!isUnlocked() ? "disabled" : ""}>${label}</button>`).join("");
+      $("#statusHelp").innerHTML = isUnlocked() ? `Choose a status, then press <b>Save changes</b> to sync it for everyone.` : `Read-only. <button id="detailUnlock" class="utility-btn" style="padding:5px 8px;margin-left:5px">Unlock ${esc(activeUser)}</button> to edit.`;
+      $("#statusActions").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setStatus(c.id, b.dataset.status)));
+      $("#detailUnlock")?.addEventListener("click", () => { closeCardModal(); openAuthModal(); });
+      $("#everyoneStatus").innerHTML = USERS.map(u => { const s = statusOf(c.id, u); return `<div class="person-status"><b>${esc(u)}</b><span class="status-pill ${s}">${esc(statusLabel(s))}</span></div>`; }).join("");
     }
 
-    function showToast(message) {
-      toastEl.textContent = message;
-      toastEl.classList.add("show");
-      clearTimeout(showToast.timer);
-      showToast.timer = setTimeout(() => toastEl.classList.remove("show"), 3000);
-    }
-
-    function openAuthModal() {
-      $("#authTitle").textContent = `Unlock ${activeUser}`;
-      $("#authText").textContent = `Enter ${activeUser}'s PIN to enable editing on this device.`;
-      authError.textContent = "";
-      pinInput.value = "";
-      authModal.classList.add("show");
-      authModal.setAttribute("aria-hidden", "false");
-      setTimeout(() => pinInput.focus(), 30);
-    }
-
-    function closeAuthModal() {
-      authModal.classList.remove("show");
-      authModal.setAttribute("aria-hidden", "true");
-      pinInput.value = "";
-      authError.textContent = "";
-    }
-
+    function openAuthModal() { $("#authTitle").textContent = `Unlock ${activeUser}`; $("#authText").textContent = `Enter ${activeUser}'s PIN to enable editing on this device.`; authError.textContent = ""; pinInput.value = ""; authModal.classList.add("show"); authModal.setAttribute("aria-hidden", "false"); setTimeout(() => pinInput.focus(), 30); }
+    function closeAuthModal() { authModal.classList.remove("show"); authModal.setAttribute("aria-hidden", "true"); pinInput.value = ""; authError.textContent = ""; }
     async function unlockActiveUser() {
-      const pin = pinInput.value;
-      if (!pin || authBusy) return;
-      authBusy = true;
-      $("#unlockSubmit").disabled = true;
-      authError.textContent = "Checking…";
-
+      const pin = pinInput.value; if (!pin || authBusy) return; authBusy = true; $("#unlockSubmit").disabled = true; authError.textContent = "Checking…";
       try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "login", user: activeUser, pin })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.token) throw new Error(data.error || `HTTP ${res.status}`);
-
-        authTokens[activeUser] = data.token;
-        writeAuthTokens();
-        cloudAvailable = true;
-        closeAuthModal();
-        renderProfiles();
-        render();
-        showToast(`${activeUser} is unlocked for editing.`);
-      } catch (err) {
-        authError.textContent = err.message === "Invalid PIN" ? "That PIN is not correct." : (err.message || "Unable to unlock.");
-      } finally {
-        authBusy = false;
-        $("#unlockSubmit").disabled = false;
-      }
+        const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "login", user: activeUser, pin }) });
+        const data = await res.json().catch(() => ({})); if (!res.ok || !data.token) throw new Error(data.error || `HTTP ${res.status}`);
+        authTokens[activeUser] = data.token; writeAuthTokens(); cloudAvailable = true; closeAuthModal(); renderAll(); showToast(`${activeUser} is unlocked for editing.`);
+      } catch (err) { authError.textContent = err.message === "Invalid PIN" ? "That PIN is not correct." : (err.message || "Unable to unlock."); }
+      finally { authBusy = false; $("#unlockSubmit").disabled = false; }
     }
+    function lockActiveUser() { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); showToast(`${activeUser} is now read-only on this device.`); }
 
-    function lockActiveUser() {
-      delete authTokens[activeUser];
-      writeAuthTokens();
-      renderProfiles();
-      render();
-      showToast(`${activeUser} is now read-only on this device.`);
-    }
-
-    async function loadCloudUser(user) {
+    async function loadAllCloud(cid = activeChecklist) {
       try {
-        const params = new URLSearchParams({ user, checklist: activeChecklist });
-        const res = await fetch(`${API_URL}?${params.toString()}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        cloudAvailable = true;
-        if (data && Array.isArray(data.owned)) {
-          state[activeChecklist][user].owned = data.owned.map(String);
-          state[activeChecklist][user].lastSaved = data.lastSaved || null;
+        const res = await fetch(`${API_URL}?${new URLSearchParams({ checklist: cid, all: "1" })}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true;
+        if (data?.collections) {
+          for (const user of USERS) {
+            const incoming = data.collections[user]; if (!incoming || isDirty(cid, user)) continue;
+            state[cid][user] = { statuses: normalizeStatuses(incoming.statuses, incoming.owned), lastSaved: incoming.lastSaved || null };
+          }
           writeLocal();
         }
-      } catch {
-        cloudAvailable = false;
-      }
+        return data;
+      } catch { cloudAvailable = false; return null; }
     }
-
-    async function saveActiveUser() {
-      if (!isUnlocked()) {
-        openAuthModal();
-        return;
-      }
-
-      const payload = {
-        user: activeUser,
-        checklist: activeChecklist,
-        owned: state[activeChecklist][activeUser].owned,
-        lastSaved: new Date().toISOString()
-      };
-
+    async function loadActivity(cid = activeChecklist) {
       try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authTokens[activeUser]}`
-          },
-          body: JSON.stringify(payload)
-        });
+        const res = await fetch(`${API_URL}?${new URLSearchParams({ checklist: cid, activity: "1" })}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; activityByChecklist[cid] = Array.isArray(data.activity) ? data.activity : []; return activityByChecklist[cid];
+      } catch { return activityByChecklist[cid] || []; }
+    }
+    async function refreshCloud(cid = activeChecklist) { await Promise.all([loadAllCloud(cid), loadActivity(cid)]); }
+    async function saveActiveUser() {
+      if (!isUnlocked()) return openAuthModal(); if (!isDirty()) return showToast("No unsaved changes.");
+      const payload = { user: activeUser, checklist: activeChecklist, statuses: record().statuses };
+      try {
+        const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authTokens[activeUser]}` }, body: JSON.stringify(payload) });
         const data = await res.json().catch(() => ({}));
-        if (res.status === 401 || res.status === 403) {
-          delete authTokens[activeUser];
-          writeAuthTokens();
-          renderProfiles();
-          render();
-          throw new Error("Your edit access expired. Unlock again.");
-        }
+        if (res.status === 401 || res.status === 403) { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); throw new Error("Your edit access expired. Unlock again."); }
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-
-        cloudAvailable = true;
-        state[activeChecklist][activeUser].lastSaved = data.lastSaved || payload.lastSaved;
-        writeLocal();
-        showToast(`${activeUser}'s ${checklist().title} checklist saved.`);
-      } catch (err) {
-        showToast(err.message || "Could not save the checklist.");
-      }
-      render();
+        cloudAvailable = true; state[activeChecklist][activeUser] = { statuses: normalizeStatuses(data.statuses, data.owned), lastSaved: data.lastSaved || new Date().toISOString() };
+        dirty.delete(dirtyKey()); writeDirty(); writeLocal(); await refreshCloud(activeChecklist); renderAll(); showToast(`${activeUser}'s ${checklist().title} changes saved.`);
+      } catch (err) { showToast(err.message || "Could not save the checklist."); }
     }
 
-    document.querySelectorAll(".seg-btn").forEach(btn => btn.addEventListener("click", () => {
-      if (!checklist().supportsPokemonOnly) return;
-      displayMode = btn.dataset.mode;
-      document.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b === btn));
-      render();
-    }));
+    function openToolModal(title, bodyHtml) { $("#toolTitle").textContent = title; $("#toolBody").innerHTML = bodyHtml; toolModal.classList.add("show"); toolModal.setAttribute("aria-hidden", "false"); }
+    function closeToolModal() { toolModal.classList.remove("show"); toolModal.setAttribute("aria-hidden", "true"); }
+    function statusPillHtml(s) { return `<span class="status-pill ${s}">${esc(statusShort(s))}</span>`; }
+    async function showCompare() {
+      await loadAllCloud(activeChecklist); renderAll();
+      const rows = scopeCards().map(c => `<tr><td><b>${esc(c.name)}</b><div class="tiny">${esc(c.displayNumber)} • ${esc(c.set)}</div></td>${USERS.map(u => `<td>${statusPillHtml(statusOf(c.id,u))}</td>`).join("")}</tr>`).join("");
+      openToolModal(`Compare Collections — ${checklist().title}`, `<p class="tiny">Side-by-side status for the ${scopeCards().length} cards in the current checklist view.</p><div class="compare-wrap"><table class="compare"><thead><tr><th>Card</th>${USERS.map(u => `<th>${esc(u)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`);
+    }
+    async function showTradeFinder() {
+      await loadAllCloud(activeChecklist); renderAll();
+      const trades = [];
+      for (const c of cards()) {
+        const givers = USERS.filter(u => statusOf(c.id,u) === "duplicate"); const receivers = USERS.filter(u => statusOf(c.id,u) === "need");
+        for (const giver of givers) for (const receiver of receivers) if (giver !== receiver) trades.push({ c, giver, receiver });
+      }
+      const body = trades.length ? `<p class="tiny">Matches only cards explicitly marked <b>Duplicate / trade</b> by one collector and <b>Need</b> by another.</p><div class="trade-list">${trades.map(t => `<div class="trade-item"><div class="trade-card">${esc(t.c.name)} ${esc(t.c.displayNumber)} <span class="tiny">• ${esc(t.c.set)}</span></div><div class="trade-person"><b>${esc(t.giver)}</b><br><span class="tiny">has duplicate</span></div><div class="trade-arrow">→</div><div class="trade-person"><b>${esc(t.receiver)}</b><br><span class="tiny">needs it</span></div></div>`).join("")}</div>` : `<div class="empty" style="margin-top:15px">No trade matches yet.<br><span class="tiny">Mark cards as Need and Duplicate / trade to create matches.</span></div>`;
+      openToolModal(`Trade Finder — ${checklist().title}`, body);
+    }
+    function downloadBlob(filename, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
+    async function exportBackup(format) {
+      await Promise.all(Object.keys(CHECKLISTS).flatMap(cid => [loadAllCloud(cid), loadActivity(cid)])); writeLocal();
+      const exportedAt = new Date().toISOString();
+      if (format === "json") {
+        const payload = { version: 3, exportedAt, collections: state, activity: activityByChecklist };
+        downloadBlob(`pokemon-checklists-backup-${exportedAt.slice(0,10)}.json`, JSON.stringify(payload, null, 2), "application/json"); showToast("JSON backup downloaded.");
+      } else {
+        const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+        const rows = [["Checklist","User","Card ID","Pokemon / Card","Set","Number","Status","Last Saved"]];
+        for (const [cid, cfg] of Object.entries(CHECKLISTS)) for (const user of USERS) for (const c of cfg.cards) {
+          const s = statusOf(c.id, user, cid); if (s === "none") continue;
+          rows.push([cfg.title,user,c.id,c.name,c.set,c.displayNumber,statusLabel(s),state[cid][user].lastSaved || ""]);
+        }
+        downloadBlob(`pokemon-checklists-${exportedAt.slice(0,10)}.csv`, rows.map(r => r.map(q).join(",")).join("\r\n"), "text/csv;charset=utf-8"); showToast("CSV export downloaded.");
+      }
+    }
+    function showBackup() {
+      openToolModal("Backup / Export", `<p>Download a backup of everyone’s saved collection data. JSON is the best full backup; CSV is easier to open in Excel.</p><div class="export-actions"><button class="tool-btn primary" id="jsonExport">Download JSON backup</button><button class="tool-btn" id="csvExport">Download CSV</button></div><p class="tiny" style="margin-top:14px">The export contains collection statuses and save timestamps. PINs and authentication secrets are never included.</p>`);
+      $("#jsonExport").addEventListener("click", () => exportBackup("json")); $("#csvExport").addEventListener("click", () => exportBackup("csv"));
+    }
+    function showToast(message) { toastEl.textContent = message; toastEl.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toastEl.classList.remove("show"), 3000); }
 
-    document.querySelectorAll(".filter-btn").forEach(btn => btn.addEventListener("click", () => {
-      filter = btn.dataset.filter;
-      document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b === btn));
-      render();
-    }));
-
-    $("#search").addEventListener("input", e => { search = e.target.value.trim(); render(); });
-    $("#save").addEventListener("click", saveActiveUser);
-    $("#authButton").addEventListener("click", () => isUnlocked() ? lockActiveUser() : openAuthModal());
-    $("#authCancel").addEventListener("click", closeAuthModal);
-    $("#unlockSubmit").addEventListener("click", unlockActiveUser);
-    pinInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") unlockActiveUser();
-      if (e.key === "Escape") closeAuthModal();
-    });
+    document.querySelectorAll(".seg-btn").forEach(btn => btn.addEventListener("click", () => { if (!checklist().supportsPokemonOnly) return; displayMode = btn.dataset.mode; renderAll(); }));
+    document.querySelectorAll(".filter-btn").forEach(btn => btn.addEventListener("click", () => { filter = btn.dataset.filter; document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b === btn)); renderAll(); }));
+    $("#search").addEventListener("input", e => { search = e.target.value.trim(); renderAll(); });
+    $("#save").addEventListener("click", saveActiveUser); $("#authButton").addEventListener("click", () => isUnlocked() ? lockActiveUser() : openAuthModal());
+    $("#mobileAction").addEventListener("click", () => isUnlocked() ? saveActiveUser() : openAuthModal());
+    $("#missingQuick").addEventListener("click", () => { filter = "missing"; document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filter === "missing")); renderAll(); $("#gridTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
+    $("#compareButton").addEventListener("click", showCompare); $("#tradeButton").addEventListener("click", showTradeFinder); $("#backupButton").addEventListener("click", showBackup);
+    $("#refreshActivity").addEventListener("click", async () => { await refreshCloud(activeChecklist); renderAll(); showToast("Collection data refreshed."); });
+    $("#authCancel").addEventListener("click", closeAuthModal); $("#unlockSubmit").addEventListener("click", unlockActiveUser);
+    pinInput.addEventListener("keydown", e => { if (e.key === "Enter") unlockActiveUser(); if (e.key === "Escape") closeAuthModal(); });
     authModal.addEventListener("click", e => { if (e.target === authModal) closeAuthModal(); });
+    $("#detailClose").addEventListener("click", closeCardModal); cardModal.addEventListener("click", e => { if (e.target === cardModal) closeCardModal(); });
+    $("#toolClose").addEventListener("click", closeToolModal); toolModal.addEventListener("click", e => { if (e.target === toolModal) closeToolModal(); });
+    document.addEventListener("keydown", e => { if (e.key === "Escape") { if (toolModal.classList.contains("show")) closeToolModal(); else if (cardModal.classList.contains("show")) closeCardModal(); else if (authModal.classList.contains("show")) closeAuthModal(); } });
 
-    renderChecklists();
-    renderProfiles();
-    render();
-    loadCloudUser(activeUser).then(render);
+    renderAll(); refreshCloud(activeChecklist).then(renderAll);
   </script>
 </body>
 </html>

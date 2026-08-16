@@ -1,4 +1,5 @@
 const ALLOWED_USERS = new Set(["Isabella", "Haley", "Friend 2", "Friend 3?"]);
+const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
 const PIN_ENV = {
   Isabella: "PITCH_BLACK_PIN_ISABELLA",
   Haley: "PITCH_BLACK_PIN_HALEY",
@@ -25,6 +26,20 @@ function validCardId(checklist, id) {
 }
 function storageKey(checklist, user) { return checklist === "pitch-black" ? `pitch-black:${user}` : `tepig-line:${user}`; }
 function activityKey(checklist) { return `pokemon-checklists:activity:${checklist}`; }
+function displayNameKey(user) { return `pokemon-checklists:display-name:${user}`; }
+function cleanDisplayName(value) {
+  if (typeof value !== "string") return null;
+  const name = value.trim().replace(/\s+/g, " ");
+  if (!name || [...name].length > 30 || /[\u0000-\u001F\u007F]/.test(name)) return null;
+  return name;
+}
+async function getDisplayNames(context) {
+  const pairs = await Promise.all([...ALLOWED_USERS].map(async user => {
+    const saved = await context.env.PITCH_BLACK_CHECKLIST.get(displayNameKey(user));
+    return [user, cleanDisplayName(saved) || DEFAULT_DISPLAY_NAMES[user] || user];
+  }));
+  return Object.fromEntries(pairs);
+}
 function cleanStatuses(checklist, statuses, owned) {
   const out = {};
   if (statuses && typeof statuses === "object" && !Array.isArray(statuses)) {
@@ -68,6 +83,23 @@ async function login(context, body) {
   await context.env.PITCH_BLACK_CHECKLIST.delete(key); return json({ ok: true, user, token: await issueToken(user, secret), expiresIn: TOKEN_TTL_SECONDS });
 }
 async function getRecord(context, checklist, user) { const raw = await context.env.PITCH_BLACK_CHECKLIST.get(storageKey(checklist, user), { type: "json" }); return normalizeRecord(user, checklist, raw); }
+async function renameProfile(context, auth, body) {
+  const { user } = body || {};
+  if (!validUser(user)) return json({ error: "Invalid user" }, 400);
+  if (auth.user !== user) return json({ error: "You can only change your own name" }, 403);
+  const displayName = cleanDisplayName(body?.displayName);
+  if (!displayName) return json({ error: "Name must be 1 to 30 characters" }, 400);
+
+  const names = await getDisplayNames(context);
+  const duplicate = Object.entries(names).some(([otherUser, otherName]) =>
+    otherUser !== user && otherName.toLocaleLowerCase() === displayName.toLocaleLowerCase()
+  );
+  if (duplicate) return json({ error: "That name is already being used" }, 409);
+
+  await context.env.PITCH_BLACK_CHECKLIST.put(displayNameKey(user), displayName);
+  return json({ ok: true, user, displayName });
+}
+
 async function appendActivity(context, checklist, entries) {
   if (!entries.length) return;
   let existing = await context.env.PITCH_BLACK_CHECKLIST.get(activityKey(checklist), { type: "json" }); if (!Array.isArray(existing)) existing = [];
@@ -79,12 +111,12 @@ export async function onRequestGet(context) {
   const url = new URL(context.request.url); const checklist = url.searchParams.get("checklist") || "pitch-black";
   if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400);
   if (url.searchParams.get("activity") === "1") {
-    const activity = await context.env.PITCH_BLACK_CHECKLIST.get(activityKey(checklist), { type: "json" }); return json({ checklist, activity: Array.isArray(activity) ? activity : [] });
+    const [activity, displayNames] = await Promise.all([context.env.PITCH_BLACK_CHECKLIST.get(activityKey(checklist), { type: "json" }), getDisplayNames(context)]); return json({ checklist, activity: Array.isArray(activity) ? activity : [], displayNames });
   }
   if (url.searchParams.get("all") === "1") {
-    const pairs = await Promise.all([...ALLOWED_USERS].map(async user => [user, await getRecord(context, checklist, user)])); return json({ checklist, collections: Object.fromEntries(pairs) });
+    const [pairs, displayNames] = await Promise.all([Promise.all([...ALLOWED_USERS].map(async user => [user, await getRecord(context, checklist, user)])), getDisplayNames(context)]); return json({ checklist, collections: Object.fromEntries(pairs), displayNames });
   }
-  const user = url.searchParams.get("user"); if (!validUser(user)) return json({ error: "Invalid user" }, 400); return json(await getRecord(context, checklist, user));
+  const user = url.searchParams.get("user"); if (!validUser(user)) return json({ error: "Invalid user" }, 400); const [record, displayNames] = await Promise.all([getRecord(context, checklist, user), getDisplayNames(context)]); return json({ ...record, displayName: displayNames[user] });
 }
 
 export async function onRequestPost(context) {
@@ -93,6 +125,7 @@ export async function onRequestPost(context) {
   if (body?.action === "login") return login(context, body);
   const secret = context.env.PITCH_BLACK_AUTH_SECRET; if (!secret) return json({ error: "Authentication is not configured" }, 503);
   const auth = await verifyToken(authHeaderToken(context.request), secret); if (!auth) return json({ error: "Unlock required" }, 401);
+  if (body?.action === "rename") return renameProfile(context, auth, body);
   const { user, checklist = "pitch-black" } = body || {}; if (!validUser(user)) return json({ error: "Invalid user" }, 400); if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400); if (auth.user !== user) return json({ error: "You can only edit your own checklist" }, 403);
   const statuses = cleanStatuses(checklist, body.statuses, body.owned); if (!statuses) return json({ error: "Invalid card status data" }, 400);
   const previous = await getRecord(context, checklist, user); const now = new Date().toISOString();

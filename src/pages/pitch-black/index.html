@@ -80,6 +80,12 @@
       color: var(--text); border-radius: 12px; padding: 10px 12px; outline: none;
     }
     .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
+
+    .name-input {
+      width: 100%; border: 1px solid var(--border); background: var(--panel); color: var(--text);
+      border-radius: 12px; padding: 11px 12px; outline: none; margin-top: 8px;
+    }
+    .name-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
     .stats { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 10px; margin: 18px 0 12px; }
     .stat, .panel {
       background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.018));
@@ -295,6 +301,7 @@
       <button class="tool-btn" id="compareButton">👥 Compare Collections</button>
       <button class="tool-btn trade" id="tradeButton">🔁 Trade Finder</button>
       <button class="tool-btn" id="backupButton">💾 Backup / Export</button>
+      <button class="tool-btn" id="renameButton">✏️ Change Name</button>
     </div>
 
     <section class="dashboard">
@@ -372,7 +379,9 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const USERS = ["Isabella", "Haley", "Friend 2", "Friend 3?"];
+    const USERS = ["Isabella", "Haley", "Friend 2", "Friend 3?"]; // Stable account IDs; visible names can change.
+    const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
+    const DISPLAY_NAMES_STORAGE_KEY = "pokemon-shared-checklists-display-names-v1";
     const STORAGE_KEY = "pokemon-shared-checklists-v3";
     const PREV_STORAGE_KEY = "pokemon-shared-checklists-v2";
     const LEGACY_STORAGE_KEY = "pitch-black-checklist-v1";
@@ -427,6 +436,7 @@
     let activityByChecklist = { "pitch-black": [], "tepig-line": [] };
     let state = loadState();
     let authTokens = loadAuthTokens();
+    let displayNames = loadDisplayNames();
 
     function blankRecord() { return { statuses: {}, lastSaved: null }; }
     function defaultState() { return Object.fromEntries(Object.keys(CHECKLISTS).map(cid => [cid, Object.fromEntries(USERS.map(u => [u, blankRecord()]))])); }
@@ -465,6 +475,25 @@
     function writeLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
     function loadAuthTokens() { try { const p = JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || "{}"); return p && typeof p === "object" ? p : {}; } catch { return {}; } }
     function writeAuthTokens() { localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authTokens)); }
+    function loadDisplayNames() {
+      const out = { ...DEFAULT_DISPLAY_NAMES };
+      try {
+        const saved = JSON.parse(localStorage.getItem(DISPLAY_NAMES_STORAGE_KEY) || "{}");
+        if (saved && typeof saved === "object") for (const user of USERS) if (typeof saved[user] === "string" && saved[user].trim()) out[user] = saved[user].trim();
+      } catch {}
+      return out;
+    }
+    function writeDisplayNames() { localStorage.setItem(DISPLAY_NAMES_STORAGE_KEY, JSON.stringify(displayNames)); }
+    function applyDisplayNames(incoming) {
+      if (!incoming || typeof incoming !== "object") return;
+      let changed = false;
+      for (const user of USERS) {
+        const value = typeof incoming[user] === "string" ? incoming[user].trim() : "";
+        if (value && displayNames[user] !== value) { displayNames[user] = value; changed = true; }
+      }
+      if (changed) writeDisplayNames();
+    }
+    function displayName(user = activeUser) { return displayNames[user] || DEFAULT_DISPLAY_NAMES[user] || user; }
     function loadDirty() { try { const p = JSON.parse(localStorage.getItem(DIRTY_STORAGE_KEY) || "[]"); return new Set(Array.isArray(p) ? p : []); } catch { return new Set(); } }
     function writeDirty() { localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify([...dirty])); }
     function checklist(id = activeChecklist) { return CHECKLISTS[id]; }
@@ -490,7 +519,7 @@
       }));
     }
     function renderProfiles() {
-      profilesEl.innerHTML = USERS.map(u => `<button class="profile-btn ${u === activeUser ? "active" : ""}" data-user="${esc(u)}">${esc(u)}${isUnlocked(u) ? " ✓" : ""}</button>`).join("");
+      profilesEl.innerHTML = USERS.map(u => `<button class="profile-btn ${u === activeUser ? "active" : ""}" data-user="${esc(u)}">${esc(displayName(u))}${isUnlocked(u) ? " ✓" : ""}</button>`).join("");
       profilesEl.querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => { activeUser = btn.dataset.user; renderAll(); await refreshCloud(activeChecklist); renderAll(); }));
     }
     function filteredCards() {
@@ -522,16 +551,16 @@
       const statuses = scope.map(c => statusOf(c.id));
       const have = statuses.filter(collected).length, need = statuses.filter(s => s === "need").length, trades = statuses.filter(s => s === "duplicate").length;
       const pct = scope.length ? Math.round(have / scope.length * 100) : 0;
-      $("#collectorStat").textContent = activeUser; $("#checklistStat").textContent = checklist().title; $("#collectedStat").textContent = `${have} / ${scope.length}`;
+      $("#collectorStat").textContent = displayName(); $("#checklistStat").textContent = checklist().title; $("#collectedStat").textContent = `${have} / ${scope.length}`;
       $("#needStat").textContent = need; $("#tradeStat").textContent = trades; $("#progressBar").style.width = `${pct}%`;
       const unlocked = isUnlocked(), last = record().lastSaved, dirtyNow = isDirty();
       const syncText = cloudAvailable ? "Cloud sync ready" : "Cloud sync unavailable";
       $("#saveStatus").innerHTML = `<span class="sync-dot ${cloudAvailable ? "cloud" : ""}"></span>${dirtyNow ? "Unsaved changes" : (unlocked ? "Editing enabled" : "Read-only")}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:3px">${syncText}${last ? ` • ${new Date(last).toLocaleString()}` : ""}</div>`;
-      $("#accessHint").textContent = unlocked ? `Editing ${activeUser}'s ${checklist().title} checklist. Changes stay local until you press Save changes.` : `You are viewing ${activeUser}'s ${checklist().title} checklist read-only. Anyone can view; only ${activeUser} can unlock and save changes.`;
-      $("#missingQuick").textContent = `🔎 Show ${activeUser}\'s Missing Cards`;
-      const authBtn = $("#authButton"); authBtn.textContent = unlocked ? `Lock ${activeUser}` : `Unlock ${activeUser}`; authBtn.classList.toggle("unlocked", unlocked);
+      $("#accessHint").textContent = unlocked ? `Editing ${displayName()}'s ${checklist().title} checklist. Changes stay local until you press Save changes.` : `You are viewing ${displayName()}'s ${checklist().title} checklist read-only. Anyone can view; only ${displayName()} can unlock and save changes.`;
+      $("#missingQuick").textContent = `🔎 Show ${displayName()}\'s Missing Cards`;
+      const authBtn = $("#authButton"); authBtn.textContent = unlocked ? `Lock ${displayName()}` : `Unlock ${displayName()}`; authBtn.classList.toggle("unlocked", unlocked);
       const save = $("#save"); save.hidden = !unlocked; save.disabled = !dirtyNow; save.classList.toggle("dirty", dirtyNow); save.textContent = dirtyNow ? "Save changes" : "Saved";
-      $("#mobileSummary").innerHTML = `${have} / ${scope.length} • ${pct}%<small>${esc(activeUser)} • ${esc(checklist().title)}${dirtyNow ? " • Unsaved" : ""}</small>`;
+      $("#mobileSummary").innerHTML = `${have} / ${scope.length} • ${pct}%<small>${esc(displayName())} • ${esc(checklist().title)}${dirtyNow ? " • Unsaved" : ""}</small>`;
       const mobileAction = $("#mobileAction"); mobileAction.textContent = unlocked ? (dirtyNow ? "Save" : "Saved") : "Unlock"; mobileAction.disabled = unlocked && !dirtyNow;
       return { scope, have, need, trades, pct };
     }
@@ -572,8 +601,8 @@
     function renderMilestones() { $("#milestones").innerHTML = milestoneData().map(([label, earned]) => `<span class="milestone ${earned ? "earned" : ""}">${label}</span>`).join(""); }
     function activityText(entry) {
       const c = cardById(entry.checklist, entry.cardId); const name = c ? `${c.name} ${c.displayNumber}` : entry.cardId;
-      if (entry.to === "none") return `<b>${esc(entry.user)}</b> cleared ${esc(name)}`;
-      return `<b>${esc(entry.user)}</b> marked ${esc(name)} as <b>${esc(statusLabel(entry.to))}</b>`;
+      if (entry.to === "none") return `<b>${esc(displayName(entry.user))}</b> cleared ${esc(name)}`;
+      return `<b>${esc(displayName(entry.user))}</b> marked ${esc(name)} as <b>${esc(statusLabel(entry.to))}</b>`;
     }
     function renderActivity() {
       const list = activityByChecklist[activeChecklist] || [];
@@ -617,34 +646,34 @@
       $("#detailTitle").textContent = c.name; $("#detailSub").textContent = `${c.set} • ${c.displayNumber}`;
       $("#detailImage").innerHTML = `<img src="${esc(c.images[0])}" data-fallbacks="${esc(c.images.slice(1).join("||"))}" alt="${esc(c.name)}" /><div class="fallback">${esc(c.name)}<br>${esc(c.displayNumber)}</div>`;
       attachImageFallbacks($("#detailImage"));
-      $("#detailFields").innerHTML = `<div class="field"><b>Set</b>${esc(c.set)}</div><div class="field"><b>Card number</b>${esc(c.displayNumber)}</div><div class="field"><b>Year</b>${esc(c.year ?? "—")}</div><div class="field"><b>Print type</b>${esc(c.printType || "—")}</div><div class="field"><b>Rarity</b>${esc(c.rarity || "Not cataloged")}</div><div class="field"><b>${esc(activeUser)} status</b>${esc(statusLabel(statusOf(c.id)))}</div>`;
-      const current = statusOf(c.id); $("#statusEditorTitle").textContent = `${activeUser}'s status`;
+      $("#detailFields").innerHTML = `<div class="field"><b>Set</b>${esc(c.set)}</div><div class="field"><b>Card number</b>${esc(c.displayNumber)}</div><div class="field"><b>Year</b>${esc(c.year ?? "—")}</div><div class="field"><b>Print type</b>${esc(c.printType || "—")}</div><div class="field"><b>Rarity</b>${esc(c.rarity || "Not cataloged")}</div><div class="field"><b>${esc(displayName())} status</b>${esc(statusLabel(statusOf(c.id)))}</div>`;
+      const current = statusOf(c.id); $("#statusEditorTitle").textContent = `${displayName()}'s status`;
       $("#statusActions").innerHTML = [
         ["none","Clear"], ["need","⭐ Need"], ["have","✓ Have"], ["duplicate","🔁 Duplicate"]
       ].map(([s,label]) => `<button class="status-btn ${current === s ? "active" : ""}" data-status="${s}" ${!isUnlocked() ? "disabled" : ""}>${label}</button>`).join("");
-      $("#statusHelp").innerHTML = isUnlocked() ? `Choose a status, then press <b>Save changes</b> to sync it for everyone.` : `Read-only. <button id="detailUnlock" class="utility-btn" style="padding:5px 8px;margin-left:5px">Unlock ${esc(activeUser)}</button> to edit.`;
+      $("#statusHelp").innerHTML = isUnlocked() ? `Choose a status, then press <b>Save changes</b> to sync it for everyone.` : `Read-only. <button id="detailUnlock" class="utility-btn" style="padding:5px 8px;margin-left:5px">Unlock ${esc(displayName())}</button> to edit.`;
       $("#statusActions").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setStatus(c.id, b.dataset.status)));
       $("#detailUnlock")?.addEventListener("click", () => { closeCardModal(); openAuthModal(); });
-      $("#everyoneStatus").innerHTML = USERS.map(u => { const s = statusOf(c.id, u); return `<div class="person-status"><b>${esc(u)}</b><span class="status-pill ${s}">${esc(statusLabel(s))}</span></div>`; }).join("");
+      $("#everyoneStatus").innerHTML = USERS.map(u => { const s = statusOf(c.id, u); return `<div class="person-status"><b>${esc(displayName(u))}</b><span class="status-pill ${s}">${esc(statusLabel(s))}</span></div>`; }).join("");
     }
 
-    function openAuthModal() { $("#authTitle").textContent = `Unlock ${activeUser}`; $("#authText").textContent = `Enter ${activeUser}'s PIN to enable editing on this device.`; authError.textContent = ""; pinInput.value = ""; authModal.classList.add("show"); authModal.setAttribute("aria-hidden", "false"); setTimeout(() => pinInput.focus(), 30); }
+    function openAuthModal() { $("#authTitle").textContent = `Unlock ${displayName()}`; $("#authText").textContent = `Enter ${displayName()}'s PIN to enable editing on this device.`; authError.textContent = ""; pinInput.value = ""; authModal.classList.add("show"); authModal.setAttribute("aria-hidden", "false"); setTimeout(() => pinInput.focus(), 30); }
     function closeAuthModal() { authModal.classList.remove("show"); authModal.setAttribute("aria-hidden", "true"); pinInput.value = ""; authError.textContent = ""; }
     async function unlockActiveUser() {
       const pin = pinInput.value; if (!pin || authBusy) return; authBusy = true; $("#unlockSubmit").disabled = true; authError.textContent = "Checking…";
       try {
         const res = await fetch(API_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "login", user: activeUser, pin }) });
         const data = await res.json().catch(() => ({})); if (!res.ok || !data.token) throw new Error(data.error || `HTTP ${res.status}`);
-        authTokens[activeUser] = data.token; writeAuthTokens(); cloudAvailable = true; closeAuthModal(); renderAll(); showToast(`${activeUser} is unlocked for editing.`);
+        authTokens[activeUser] = data.token; writeAuthTokens(); cloudAvailable = true; closeAuthModal(); renderAll(); showToast(`${displayName()} is unlocked for editing.`);
       } catch (err) { authError.textContent = err.message === "Invalid PIN" ? "That PIN is not correct." : (err.message || "Unable to unlock."); }
       finally { authBusy = false; $("#unlockSubmit").disabled = false; }
     }
-    function lockActiveUser() { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); showToast(`${activeUser} is now read-only on this device.`); }
+    function lockActiveUser() { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); showToast(`${displayName()} is now read-only on this device.`); }
 
     async function loadAllCloud(cid = activeChecklist) {
       try {
         const res = await fetch(`${API_URL}?${new URLSearchParams({ checklist: cid, all: "1" })}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true;
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; applyDisplayNames(data?.displayNames);
         if (data?.collections) {
           for (const user of USERS) {
             const incoming = data.collections[user]; if (!incoming || isDirty(cid, user)) continue;
@@ -658,7 +687,7 @@
     async function loadActivity(cid = activeChecklist) {
       try {
         const res = await fetch(`${API_URL}?${new URLSearchParams({ checklist: cid, activity: "1" })}`, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; activityByChecklist[cid] = Array.isArray(data.activity) ? data.activity : []; return activityByChecklist[cid];
+        if (!res.ok) throw new Error(`HTTP ${res.status}`); const data = await res.json(); cloudAvailable = true; applyDisplayNames(data?.displayNames); activityByChecklist[cid] = Array.isArray(data.activity) ? data.activity : []; return activityByChecklist[cid];
       } catch { return activityByChecklist[cid] || []; }
     }
     async function refreshCloud(cid = activeChecklist) { await Promise.all([loadAllCloud(cid), loadActivity(cid)]); }
@@ -671,7 +700,7 @@
         if (res.status === 401 || res.status === 403) { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); throw new Error("Your edit access expired. Unlock again."); }
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         cloudAvailable = true; state[activeChecklist][activeUser] = { statuses: normalizeStatuses(data.statuses, data.owned), lastSaved: data.lastSaved || new Date().toISOString() };
-        dirty.delete(dirtyKey()); writeDirty(); writeLocal(); await refreshCloud(activeChecklist); renderAll(); showToast(`${activeUser}'s ${checklist().title} changes saved.`);
+        dirty.delete(dirtyKey()); writeDirty(); writeLocal(); await refreshCloud(activeChecklist); renderAll(); showToast(`${displayName()}'s ${checklist().title} changes saved.`);
       } catch (err) { showToast(err.message || "Could not save the checklist."); }
     }
 
@@ -681,7 +710,7 @@
     async function showCompare() {
       await loadAllCloud(activeChecklist); renderAll();
       const rows = scopeCards().map(c => `<tr><td><b>${esc(c.name)}</b><div class="tiny">${esc(c.displayNumber)} • ${esc(c.set)}</div></td>${USERS.map(u => `<td>${statusPillHtml(statusOf(c.id,u))}</td>`).join("")}</tr>`).join("");
-      openToolModal(`Compare Collections — ${checklist().title}`, `<p class="tiny">Side-by-side status for the ${scopeCards().length} cards in the current checklist view.</p><div class="compare-wrap"><table class="compare"><thead><tr><th>Card</th>${USERS.map(u => `<th>${esc(u)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`);
+      openToolModal(`Compare Collections — ${checklist().title}`, `<p class="tiny">Side-by-side status for the ${scopeCards().length} cards in the current checklist view.</p><div class="compare-wrap"><table class="compare"><thead><tr><th>Card</th>${USERS.map(u => `<th>${esc(displayName(u))}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`);
     }
     async function showTradeFinder() {
       await loadAllCloud(activeChecklist); renderAll();
@@ -690,7 +719,7 @@
         const givers = USERS.filter(u => statusOf(c.id,u) === "duplicate"); const receivers = USERS.filter(u => statusOf(c.id,u) === "need");
         for (const giver of givers) for (const receiver of receivers) if (giver !== receiver) trades.push({ c, giver, receiver });
       }
-      const body = trades.length ? `<p class="tiny">Matches only cards explicitly marked <b>Duplicate / trade</b> by one collector and <b>Need</b> by another.</p><div class="trade-list">${trades.map(t => `<div class="trade-item"><div class="trade-card">${esc(t.c.name)} ${esc(t.c.displayNumber)} <span class="tiny">• ${esc(t.c.set)}</span></div><div class="trade-person"><b>${esc(t.giver)}</b><br><span class="tiny">has duplicate</span></div><div class="trade-arrow">→</div><div class="trade-person"><b>${esc(t.receiver)}</b><br><span class="tiny">needs it</span></div></div>`).join("")}</div>` : `<div class="empty" style="margin-top:15px">No trade matches yet.<br><span class="tiny">Mark cards as Need and Duplicate / trade to create matches.</span></div>`;
+      const body = trades.length ? `<p class="tiny">Matches only cards explicitly marked <b>Duplicate / trade</b> by one collector and <b>Need</b> by another.</p><div class="trade-list">${trades.map(t => `<div class="trade-item"><div class="trade-card">${esc(t.c.name)} ${esc(t.c.displayNumber)} <span class="tiny">• ${esc(t.c.set)}</span></div><div class="trade-person"><b>${esc(displayName(t.giver))}</b><br><span class="tiny">has duplicate</span></div><div class="trade-arrow">→</div><div class="trade-person"><b>${esc(displayName(t.receiver))}</b><br><span class="tiny">needs it</span></div></div>`).join("")}</div>` : `<div class="empty" style="margin-top:15px">No trade matches yet.<br><span class="tiny">Mark cards as Need and Duplicate / trade to create matches.</span></div>`;
       openToolModal(`Trade Finder — ${checklist().title}`, body);
     }
     function downloadBlob(filename, content, type) { const blob = new Blob([content], { type }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
@@ -698,14 +727,14 @@
       await Promise.all(Object.keys(CHECKLISTS).flatMap(cid => [loadAllCloud(cid), loadActivity(cid)])); writeLocal();
       const exportedAt = new Date().toISOString();
       if (format === "json") {
-        const payload = { version: 3, exportedAt, collections: state, activity: activityByChecklist };
+        const payload = { version: 4, exportedAt, displayNames, collections: state, activity: activityByChecklist };
         downloadBlob(`pokemon-checklists-backup-${exportedAt.slice(0,10)}.json`, JSON.stringify(payload, null, 2), "application/json"); showToast("JSON backup downloaded.");
       } else {
         const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const rows = [["Checklist","User","Card ID","Pokemon / Card","Set","Number","Status","Last Saved"]];
+        const rows = [["Checklist","Collector","Card ID","Pokemon / Card","Set","Number","Status","Last Saved"]];
         for (const [cid, cfg] of Object.entries(CHECKLISTS)) for (const user of USERS) for (const c of cfg.cards) {
           const s = statusOf(c.id, user, cid); if (s === "none") continue;
-          rows.push([cfg.title,user,c.id,c.name,c.set,c.displayNumber,statusLabel(s),state[cid][user].lastSaved || ""]);
+          rows.push([cfg.title,displayName(user),c.id,c.name,c.set,c.displayNumber,statusLabel(s),state[cid][user].lastSaved || ""]);
         }
         downloadBlob(`pokemon-checklists-${exportedAt.slice(0,10)}.csv`, rows.map(r => r.map(q).join(",")).join("\r\n"), "text/csv;charset=utf-8"); showToast("CSV export downloaded.");
       }
@@ -714,6 +743,44 @@
       openToolModal("Backup / Export", `<p>Download a backup of everyone’s saved collection data. JSON is the best full backup; CSV is easier to open in Excel.</p><div class="export-actions"><button class="tool-btn primary" id="jsonExport">Download JSON backup</button><button class="tool-btn" id="csvExport">Download CSV</button></div><p class="tiny" style="margin-top:14px">The export contains collection statuses and save timestamps. PINs and authentication secrets are never included.</p>`);
       $("#jsonExport").addEventListener("click", () => exportBackup("json")); $("#csvExport").addEventListener("click", () => exportBackup("csv"));
     }
+
+    function showRename() {
+      if (!isUnlocked()) { showToast(`Unlock ${displayName()} before changing the name.`); openAuthModal(); return; }
+      openToolModal("Change your name", `<p class="tiny">This changes the name everyone sees. Your PIN, saved cards, and account stay the same.</p><label for="renameInput" class="tiny" style="display:block;margin-top:12px">Display name</label><input id="renameInput" class="name-input" maxlength="30" autocomplete="nickname" value="${esc(displayName())}" /><div id="renameError" class="auth-error"></div><div class="export-actions"><button class="tool-btn" id="renameCancel">Cancel</button><button class="tool-btn primary" id="renameSave">Save name</button></div>`);
+      const input = $("#renameInput");
+      $("#renameCancel").addEventListener("click", closeToolModal);
+      $("#renameSave").addEventListener("click", renameActiveUser);
+      input.addEventListener("keydown", e => { if (e.key === "Enter") renameActiveUser(); });
+      setTimeout(() => { input.focus(); input.select(); }, 30);
+    }
+    async function renameActiveUser() {
+      if (!isUnlocked()) return showRename();
+      const input = $("#renameInput"), error = $("#renameError"), button = $("#renameSave");
+      const nextName = (input?.value || "").trim();
+      if (!nextName) { error.textContent = "Enter a name."; return; }
+      if ([...nextName].length > 30) { error.textContent = "Keep the name to 30 characters or fewer."; return; }
+      button.disabled = true; error.textContent = "Saving…";
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${authTokens[activeUser]}` },
+          body: JSON.stringify({ action: "rename", user: activeUser, displayName: nextName })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 401 || res.status === 403) {
+          delete authTokens[activeUser]; writeAuthTokens(); renderAll();
+          throw new Error("Your edit access expired. Unlock again.");
+        }
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        displayNames[activeUser] = data.displayName || nextName; writeDisplayNames(); cloudAvailable = true;
+        closeToolModal(); renderAll(); showToast(`Name changed to ${displayName()}.`);
+      } catch (err) {
+        error.textContent = err.message || "Could not change the name.";
+      } finally {
+        if (button) button.disabled = false;
+      }
+    }
+
     function showToast(message) { toastEl.textContent = message; toastEl.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toastEl.classList.remove("show"), 3000); }
 
     document.querySelectorAll(".seg-btn").forEach(btn => btn.addEventListener("click", () => { if (!checklist().supportsPokemonOnly) return; displayMode = btn.dataset.mode; renderAll(); }));
@@ -722,7 +789,7 @@
     $("#save").addEventListener("click", saveActiveUser); $("#authButton").addEventListener("click", () => isUnlocked() ? lockActiveUser() : openAuthModal());
     $("#mobileAction").addEventListener("click", () => isUnlocked() ? saveActiveUser() : openAuthModal());
     $("#missingQuick").addEventListener("click", () => { filter = "missing"; document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filter === "missing")); renderAll(); $("#gridTitle").scrollIntoView({ behavior: "smooth", block: "start" }); });
-    $("#compareButton").addEventListener("click", showCompare); $("#tradeButton").addEventListener("click", showTradeFinder); $("#backupButton").addEventListener("click", showBackup);
+    $("#compareButton").addEventListener("click", showCompare); $("#tradeButton").addEventListener("click", showTradeFinder); $("#backupButton").addEventListener("click", showBackup); $("#renameButton").addEventListener("click", showRename);
     $("#refreshActivity").addEventListener("click", async () => { await refreshCloud(activeChecklist); renderAll(); showToast("Collection data refreshed."); });
     $("#authCancel").addEventListener("click", closeAuthModal); $("#unlockSubmit").addEventListener("click", unlockActiveUser);
     pinInput.addEventListener("keydown", e => { if (e.key === "Enter") unlockActiveUser(); if (e.key === "Escape") closeAuthModal(); });

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0a0a0f" />
-  <title>Pokémon Pitch Black Checklist</title>
+  <title>Pokémon Collection Checklists</title>
   <style>
     :root {
       color-scheme: dark;
@@ -89,7 +89,7 @@
       flex-wrap: wrap;
     }
 
-    .profile-btn, .seg-btn, .filter-btn, .save-btn, .utility-btn {
+    .set-btn, .profile-btn, .seg-btn, .filter-btn, .save-btn, .utility-btn {
       border: 1px solid var(--border);
       background: var(--panel);
       border-radius: 12px;
@@ -99,8 +99,8 @@
       font-weight: 750;
     }
 
-    .profile-btn:hover, .seg-btn:hover, .filter-btn:hover, .utility-btn:hover { border-color: #50576d; transform: translateY(-1px); }
-    .profile-btn.active, .seg-btn.active, .filter-btn.active {
+    .set-btn:hover, .profile-btn:hover, .seg-btn:hover, .filter-btn:hover, .utility-btn:hover { border-color: #50576d; transform: translateY(-1px); }
+    .set-btn.active, .profile-btn.active, .seg-btn.active, .filter-btn.active {
       border-color: rgba(166,108,255,.85);
       background: linear-gradient(180deg, rgba(166,108,255,.23), rgba(166,108,255,.10));
       box-shadow: inset 0 0 0 1px rgba(166,108,255,.12);
@@ -128,7 +128,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0,1fr));
+      grid-template-columns: repeat(4, minmax(0,1fr));
       gap: 10px;
       margin: 18px 0;
     }
@@ -335,30 +335,33 @@
       .stats { grid-template-columns: 1fr; }
       .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
       .card-info { padding: 8px 9px 10px; }
-      .profile-btn { flex: 1 1 calc(50% - 5px); }
+      .set-btn, .profile-btn { flex: 1 1 calc(50% - 5px); }
     }
   </style>
 </head>
 <body>
   <header>
     <div class="wrap">
-      <div class="eyebrow">ME05 • PBL • 2026</div>
-      <h1>Pitch Black Checklist</h1>
-      <p class="subtitle">View everyone’s Pitch Black collection. Each checklist is public to the group, while editing is protected by the collector’s private PIN.</p>
+      <div class="eyebrow">Shared Pokémon Collections • 2026</div>
+      <h1>Pokémon Collection Checklists</h1>
+      <p class="subtitle">Switch between shared checklists, see what everyone has, and track what is still missing. Viewing is open to the group; editing is protected by each collector’s private PIN.</p>
     </div>
   </header>
 
   <div class="toolbar">
     <div class="wrap toolbar-inner">
+      <div class="top-row" id="checklists"></div>
       <div class="top-row" id="profiles"></div>
       <div class="bottom-row">
         <input id="search" class="search" type="search" placeholder="Search by Pokémon or card number…" autocomplete="off" />
-        <button class="seg-btn active" data-mode="pokemon">Pokémon only</button>
-        <button class="seg-btn" data-mode="all">Full set</button>
+        <span id="modeButtons" style="display:contents">
+          <button class="seg-btn active" data-mode="pokemon">Pokémon only</button>
+          <button class="seg-btn" data-mode="all">Full set</button>
+        </span>
         <button class="filter-btn active" data-filter="all">All</button>
         <button class="filter-btn" data-filter="missing">Missing</button>
         <button class="filter-btn" data-filter="owned">Owned</button>
-        <button id="authButton" class="utility-btn">Unlock Steve</button>
+        <button id="authButton" class="utility-btn">Unlock Isabella</button>
         <button id="save" class="save-btn" hidden>Save checklist</button>
       </div>
     </div>
@@ -368,7 +371,11 @@
     <section class="stats">
       <div class="stat">
         <div class="stat-label">Collector</div>
-        <div class="stat-value" id="collectorStat">Steve</div>
+        <div class="stat-value" id="collectorStat">Isabella</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Checklist</div>
+        <div class="stat-value" id="checklistStat" style="font-size:18px">Pitch Black</div>
       </div>
       <div class="stat">
         <div class="stat-label">Collected</div>
@@ -381,7 +388,7 @@
       </div>
     </section>
 
-    <div class="access-note" id="accessHint">You are viewing Steve's checklist read-only.</div>
+    <div class="access-note" id="accessHint">You are viewing Isabella’s Pitch Black checklist read-only.</div>
 
     <div class="section-title">
       <h2 id="gridTitle">Pokémon cards</h2>
@@ -390,15 +397,15 @@
     <section class="grid" id="grid"></section>
 
     <footer>
-      Card artwork is loaded from the Limitless TCG image CDN and is used as a visual collection reference. Pokémon and all related names and artwork belong to their respective rights holders. This fan checklist is not affiliated with or endorsed by The Pokémon Company International.
+      Card artwork is loaded from public Pokémon TCG card-image sources and is used as a visual collection reference. Pokémon and all related names and artwork belong to their respective rights holders. This fan checklist is not affiliated with or endorsed by The Pokémon Company International.
     </footer>
   </main>
 
   <div id="authModal" class="modal-backdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <div class="modal-lock">🔒</div>
-      <h3 id="authTitle">Unlock Steve</h3>
-      <p id="authText">Enter Steve's PIN to enable editing on this device.</p>
+      <h3 id="authTitle">Unlock Isabella</h3>
+      <p id="authText">Enter Isabella's PIN to enable editing on this device.</p>
       <input id="pinInput" class="pin-input" type="password" inputmode="numeric" autocomplete="current-password" placeholder="Enter PIN" />
       <div id="authError" class="auth-error"></div>
       <div class="modal-actions">
@@ -411,33 +418,56 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const USERS = ["Isabella", "Steve", "Isaac", "Paul"];
-    const STORAGE_KEY = "pitch-black-checklist-v1";
+    const USERS = ["Isabella", "Haley", "Friend 2", "Friend 3?"];
+    const STORAGE_KEY = "pokemon-shared-checklists-v2";
+    const LEGACY_STORAGE_KEY = "pitch-black-checklist-v1";
     const AUTH_STORAGE_KEY = "pitch-black-auth-v1";
     const API_URL = "/api/pitch-black-checklist";
 
-    const names = [
-      "Tropius","Grubbin","Fomantis","Lurantis ex","Poltchageist","Sinistcha","Heatran","Mega Delphox ex","Sizzlipede","Centiskorch","Charcadet","Armarouge","Goldeen","Seaking","Wailmer","Wailord ex","Relicanth","Popplio","Brionne","Primarina","Finizen","Palafin","Electrike","Manectric","Charjabug","Vikavolt","Mega Zeraora ex","Miraidon","Slowpoke","Slowbro","Mega Slowbro ex","Jynx","Shuppet","Banette","Spiritomb","Litwick","Lampent","Mega Chandelure ex","Dhelmise","Marshadow","Annihilape","Mankey","Primeape","Cranidos","Rampardos ex","Drilbur","Koraidon","Mega Darkrai ex","Vullaby","Mandibuzz","Inkay","Malamar","Nickit","Thievul","Morpeko ex","Zarude","Maschiff","Mabosstiff","Chi-Yu","Skarmory","Shieldon","Bastiodon","Bronzor","Bronzong","Mega Excadrill ex","Pikipek","Trumbeak","Toucannon","Type: Null","Silvally","Bombirdier","Antique Armor Fossil","Antique Skull Fossil","Backtrack Badge","Dark Bell","Fossil Quarry","Gladion's Final Battle","Gwynn","Jett","Misty's Vitality","Rust Syndicate Grunt","Tremendous Bomb","Shadowy Darkness Energy","Voltaic Lightning Energy","Fomantis","Armarouge","Goldeen","Primarina","Manectric","Slowbro","Dhelmise","Thievul","Bastiodon","Toucannon","Silvally","Lurantis ex","Wailord ex","Mega Zeraora ex","Mega Chandelure ex","Rampardos ex","Mega Darkrai ex","Morpeko ex","Mega Excadrill ex","Brave Bangle","Crushing Hammer","Dark Bell","Energy Switch","Gladion's Final Battle","Gwynn","Iron Defender","Misty's Vitality","Rust Syndicate Grunt","Tremendous Bomb","Mega Zeraora ex","Mega Chandelure ex","Mega Darkrai ex","Morpeko ex","Gladion's Final Battle","Gwynn","Mega Darkrai ex"
-    ];
+    const pitchBlackNames = ["Tropius", "Grubbin", "Fomantis", "Lurantis ex", "Poltchageist", "Sinistcha", "Heatran", "Mega Delphox ex", "Sizzlipede", "Centiskorch", "Charcadet", "Armarouge", "Goldeen", "Seaking", "Wailmer", "Wailord ex", "Relicanth", "Popplio", "Brionne", "Primarina", "Finizen", "Palafin", "Electrike", "Manectric", "Charjabug", "Vikavolt", "Mega Zeraora ex", "Miraidon", "Slowpoke", "Slowbro", "Mega Slowbro ex", "Jynx", "Shuppet", "Banette", "Spiritomb", "Litwick", "Lampent", "Mega Chandelure ex", "Dhelmise", "Marshadow", "Annihilape", "Mankey", "Primeape", "Cranidos", "Rampardos ex", "Drilbur", "Koraidon", "Mega Darkrai ex", "Vullaby", "Mandibuzz", "Inkay", "Malamar", "Nickit", "Thievul", "Morpeko ex", "Zarude", "Maschiff", "Mabosstiff", "Chi-Yu", "Skarmory", "Shieldon", "Bastiodon", "Bronzor", "Bronzong", "Mega Excadrill ex", "Pikipek", "Trumbeak", "Toucannon", "Type: Null", "Silvally", "Bombirdier", "Antique Armor Fossil", "Antique Skull Fossil", "Backtrack Badge", "Dark Bell", "Fossil Quarry", "Gladion's Final Battle", "Gwynn", "Jett", "Misty's Vitality", "Rust Syndicate Grunt", "Tremendous Bomb", "Shadowy Darkness Energy", "Voltaic Lightning Energy", "Fomantis", "Armarouge", "Goldeen", "Primarina", "Manectric", "Slowbro", "Dhelmise", "Thievul", "Bastiodon", "Toucannon", "Silvally", "Lurantis ex", "Wailord ex", "Mega Zeraora ex", "Mega Chandelure ex", "Rampardos ex", "Mega Darkrai ex", "Morpeko ex", "Mega Excadrill ex", "Brave Bangle", "Crushing Hammer", "Dark Bell", "Energy Switch", "Gladion's Final Battle", "Gwynn", "Iron Defender", "Misty's Vitality", "Rust Syndicate Grunt", "Tremendous Bomb", "Mega Zeraora ex", "Mega Chandelure ex", "Mega Darkrai ex", "Morpeko ex", "Gladion's Final Battle", "Gwynn", "Mega Darkrai ex"];
+    const pitchBlackNonPokemon = new Set([72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 118, 119]);
 
-    const nonPokemon = new Set([
-      72,73,74,75,76,77,78,79,80,81,82,83,84,
-      104,105,106,107,108,109,110,111,112,113,
-      118,119
-    ]);
-
-    const cards = names.map((name, index) => {
+    const pitchBlackCards = pitchBlackNames.map((name, index) => {
       const number = index + 1;
+      const id = String(number).padStart(3, "0");
       return {
-        id: String(number).padStart(3, "0"),
+        id,
         number,
         name,
-        pokemon: !nonPokemon.has(number),
-        image: `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/PBL/PBL_${String(number).padStart(3, "0")}_R_EN.png`
+        set: "Pitch Black",
+        displayNumber: `#${id}/084`,
+        pokemon: !pitchBlackNonPokemon.has(number),
+        images: [`https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/PBL/PBL_${id}_R_EN.png`]
       };
     });
 
-    let activeUser = "Steve";
+    const tepigLineCards = [{"id":"tepig-bwp-bw02","name":"Tepig","set":"BW Black Star Promos","number":"BW02","images":["https://images.pokemontcg.io/bwp/BW02_hires.png"]},{"id":"tepig-mcd11-3","name":"Tepig","set":"McDonald's Collection 2011","number":"3/12","images":["https://images.pokemontcg.io/mcd11/3_hires.png"]},{"id":"tepig-mcd21-13","name":"Tepig","set":"McDonald's Collection 2021","number":"13/25","images":["https://images.pokemontcg.io/mcd21/13_hires.png"]},{"id":"tepig-bw1-15","name":"Tepig","set":"Black & White","number":"15/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_015_R_EN.png","https://images.pokemontcg.io/bw1/15_hires.png"]},{"id":"tepig-bw1-16","name":"Tepig","set":"Black & White","number":"16/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_016_R_EN.png","https://images.pokemontcg.io/bw1/16_hires.png"]},{"id":"tepig-bw11-25","name":"Tepig","set":"Legendary Treasures","number":"25/113","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/LTR/LTR_025_R_EN.png","https://images.pokemontcg.io/bw11/25_hires.png"]},{"id":"tepig-bwp-bw07","name":"Tepig","set":"BW Black Star Promos","number":"BW07","images":["https://images.pokemontcg.io/bwp/BW07_hires.png"]},{"id":"tepig-bw7-24","name":"Tepig","set":"Boundaries Crossed","number":"24/149","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BCR/BCR_024_R_EN.png","https://images.pokemontcg.io/bw7/24_hires.png"]},{"id":"tepig-sm12-31","name":"Tepig","set":"Cosmic Eclipse","number":"31/236","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/CEC/CEC_031_R_EN.png","https://images.pokemontcg.io/sm12/31_hires.png"]},{"id":"tepig-swsh5-23","name":"Tepig","set":"Battle Styles","number":"23/163","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BST/BST_023_R_EN.png","https://images.pokemontcg.io/swsh5/23_hires.png"]},{"id":"tepig-swshp-swsh172","name":"Tepig","set":"SWSH Black Star Promos","number":"SWSH172","images":["https://images.pokemontcg.io/swshp/SWSH172_hires.png"]},{"id":"tepig-wht-11","name":"Tepig","set":"White Flare","number":"11/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_011_R_EN.png"]},{"id":"tepig-wht-96","name":"Tepig","set":"White Flare","number":"96/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_096_R_EN.png"]},{"id":"tepig-asc-29","name":"Tepig","set":"Ascended Heroes","number":"29/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_029_R_EN.png"]},{"id":"tepig-mep-50","name":"Tepig","set":"MEP Black Star Promos","number":"050","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/MEP/MEP_050_R_EN.png"]},{"id":"pignite-bw1-17","name":"Pignite","set":"Black & White","number":"17/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_017_R_EN.png","https://images.pokemontcg.io/bw1/17_hires.png"]},{"id":"pignite-mcd12-4","name":"Pignite","set":"McDonald's Collection 2012","number":"4/12","images":["https://images.pokemontcg.io/mcd12/4_hires.png"]},{"id":"pignite-bw1-18","name":"Pignite","set":"Black & White","number":"18/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_018_R_EN.png","https://images.pokemontcg.io/bw1/18_hires.png"]},{"id":"pignite-bw11-26","name":"Pignite","set":"Legendary Treasures","number":"26/113","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/LTR/LTR_026_R_EN.png","https://images.pokemontcg.io/bw11/26_hires.png"]},{"id":"pignite-bw7-25","name":"Pignite","set":"Boundaries Crossed","number":"25/149","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BCR/BCR_025_R_EN.png","https://images.pokemontcg.io/bw7/25_hires.png"]},{"id":"pignite-sm12-32","name":"Pignite","set":"Cosmic Eclipse","number":"32/236","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/CEC/CEC_032_R_EN.png","https://images.pokemontcg.io/sm12/32_hires.png"]},{"id":"pignite-swsh5-24","name":"Pignite","set":"Battle Styles","number":"24/163","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BST/BST_024_R_EN.png","https://images.pokemontcg.io/swsh5/24_hires.png"]},{"id":"pignite-wht-12","name":"Pignite","set":"White Flare","number":"12/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_012_R_EN.png"]},{"id":"pignite-wht-97","name":"Pignite","set":"White Flare","number":"97/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_097_R_EN.png"]},{"id":"pignite-asc-30","name":"Pignite","set":"Ascended Heroes","number":"30/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_030_R_EN.png"]},{"id":"emboar-bw1-19","name":"Emboar","set":"Black & White","number":"19/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_019_R_EN.png","https://images.pokemontcg.io/bw1/19_hires.png"]},{"id":"emboar-bw1-20","name":"Emboar","set":"Black & White","number":"20/114","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BLW/BLW_020_R_EN.png","https://images.pokemontcg.io/bw1/20_hires.png"]},{"id":"emboar-bwp-bw21","name":"Emboar","set":"BW Black Star Promos","number":"BW21","images":["https://images.pokemontcg.io/bwp/BW21_hires.png"]},{"id":"emboar-bw4-100","name":"Emboar","set":"Next Destinies","number":"100/99","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/NXD/NXD_100_R_EN.png","https://images.pokemontcg.io/bw4/100_hires.png"]},{"id":"emboar-bw11-27","name":"Emboar","set":"Legendary Treasures","number":"27/113","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/LTR/LTR_027_R_EN.png","https://images.pokemontcg.io/bw11/27_hires.png"]},{"id":"emboar-bw7-26","name":"Emboar","set":"Boundaries Crossed","number":"26/149","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BCR/BCR_026_R_EN.png","https://images.pokemontcg.io/bw7/26_hires.png"]},{"id":"emboar-sm12-33","name":"Emboar","set":"Cosmic Eclipse","number":"33/236","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/CEC/CEC_033_R_EN.png","https://images.pokemontcg.io/sm12/33_hires.png"]},{"id":"emboar-swsh5-25","name":"Emboar","set":"Battle Styles","number":"25/163","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BST/BST_025_R_EN.png","https://images.pokemontcg.io/swsh5/25_hires.png"]},{"id":"emboar-wht-13","name":"Emboar","set":"White Flare","number":"13/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_013_R_EN.png"]},{"id":"emboar-wht-98","name":"Emboar","set":"White Flare","number":"98/086","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/WHT/WHT_098_R_EN.png"]},{"id":"emboar-xy9-14","name":"Emboar","set":"BREAKpoint","number":"14/122","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/BKP/BKP_014_R_EN.png","https://images.pokemontcg.io/xy9/14_hires.png"]},{"id":"mega-emboar-asc-31","name":"Mega Emboar ex","set":"Ascended Heroes","number":"31/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_031_R_EN.png"]},{"id":"mega-emboar-asc-273","name":"Mega Emboar ex","set":"Ascended Heroes","number":"273/217","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/ASC/ASC_273_R_EN.png"]},{"id":"mega-emboar-mep-35","name":"Mega Emboar ex","set":"MEP Black Star Promos","number":"035","images":["https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/MEP/MEP_035_R_EN.png"]}].map(card => ({
+      ...card,
+      displayNumber: card.number,
+      pokemon: true
+    }));
+
+    const CHECKLISTS = {
+      "pitch-black": {
+        id: "pitch-black",
+        label: "Pitch Black",
+        title: "Pitch Black",
+        description: "2026 Pitch Black set",
+        cards: pitchBlackCards,
+        supportsPokemonOnly: true
+      },
+      "tepig-line": {
+        id: "tepig-line",
+        label: "Tepig • Pignite • Emboar",
+        title: "Tepig / Pignite / Emboar",
+        description: "English physical TCG printings",
+        cards: tepigLineCards,
+        supportsPokemonOnly: false
+      }
+    };
+
+    let activeChecklist = "pitch-black";
+    let activeUser = "Isabella";
     let displayMode = "pokemon";
     let filter = "all";
     let search = "";
@@ -447,6 +477,7 @@
     let authBusy = false;
 
     const $ = (s) => document.querySelector(s);
+    const checklistsEl = $("#checklists");
     const profilesEl = $("#profiles");
     const gridEl = $("#grid");
     const toastEl = $("#toast");
@@ -454,23 +485,47 @@
     const pinInput = $("#pinInput");
     const authError = $("#authError");
 
-    function blankState() {
+    function checklist() { return CHECKLISTS[activeChecklist]; }
+    function cards() { return checklist().cards; }
+
+    function blankUserState() {
       return Object.fromEntries(USERS.map(u => [u, { owned: [], lastSaved: null }]));
     }
 
+    function blankState() {
+      return Object.fromEntries(Object.keys(CHECKLISTS).map(id => [id, blankUserState()]));
+    }
+
     function loadLocal() {
+      const base = blankState();
       try {
         const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-        const base = blankState();
-        if (!parsed || typeof parsed !== "object") return base;
-        for (const u of USERS) {
-          if (parsed[u]) {
-            base[u].owned = Array.isArray(parsed[u].owned) ? parsed[u].owned.map(String) : [];
-            base[u].lastSaved = parsed[u].lastSaved || null;
+        if (parsed && typeof parsed === "object") {
+          for (const checklistId of Object.keys(CHECKLISTS)) {
+            for (const u of USERS) {
+              if (parsed?.[checklistId]?.[u]) {
+                base[checklistId][u].owned = Array.isArray(parsed[checklistId][u].owned)
+                  ? parsed[checklistId][u].owned.map(String)
+                  : [];
+                base[checklistId][u].lastSaved = parsed[checklistId][u].lastSaved || null;
+              }
+            }
           }
+          return base;
         }
-        return base;
-      } catch { return blankState(); }
+      } catch {}
+
+      // Migrate the old browser-only Pitch Black data for Isabella if present.
+      try {
+        const legacy = JSON.parse(localStorage.getItem(LEGACY_STORAGE_KEY) || "null");
+        if (legacy?.Isabella) {
+          base["pitch-black"].Isabella.owned = Array.isArray(legacy.Isabella.owned)
+            ? legacy.Isabella.owned.map(String)
+            : [];
+          base["pitch-black"].Isabella.lastSaved = legacy.Isabella.lastSaved || null;
+        }
+      } catch {}
+      return base;
     }
 
     function writeLocal() {
@@ -492,7 +547,30 @@
       return typeof authTokens[user] === "string" && authTokens[user].length > 20;
     }
 
-    function ownedSet() { return new Set(state[activeUser]?.owned || []); }
+    function ownedSet() {
+      return new Set(state[activeChecklist]?.[activeUser]?.owned || []);
+    }
+
+    function renderChecklists() {
+      checklistsEl.innerHTML = Object.values(CHECKLISTS).map(item => `
+        <button class="set-btn ${item.id === activeChecklist ? "active" : ""}" data-checklist="${item.id}">
+          ${item.label}
+        </button>
+      `).join("");
+
+      checklistsEl.querySelectorAll("button").forEach(btn => btn.addEventListener("click", async () => {
+        activeChecklist = btn.dataset.checklist;
+        displayMode = checklist().supportsPokemonOnly ? "pokemon" : "all";
+        search = "";
+        $("#search").value = "";
+        filter = "all";
+        document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filter === "all"));
+        renderChecklists();
+        render();
+        await loadCloudUser(activeUser);
+        render();
+      }));
+    }
 
     function renderProfiles() {
       profilesEl.innerHTML = USERS.map(u => {
@@ -511,44 +589,71 @@
 
     function filteredCards() {
       const owned = ownedSet();
-      return cards.filter(c => {
-        if (displayMode === "pokemon" && !c.pokemon) return false;
+      return cards().filter(c => {
+        if (checklist().supportsPokemonOnly && displayMode === "pokemon" && !c.pokemon) return false;
         if (filter === "owned" && !owned.has(c.id)) return false;
         if (filter === "missing" && owned.has(c.id)) return false;
         if (search) {
-          const hay = `${c.name} ${c.id} ${c.number}/084`.toLowerCase();
+          const hay = `${c.name} ${c.id} ${c.set} ${c.displayNumber}`.toLowerCase();
           if (!hay.includes(search.toLowerCase())) return false;
         }
         return true;
       });
     }
 
+    function attachImageFallbacks() {
+      gridEl.querySelectorAll("img[data-fallbacks]").forEach(img => {
+        const fallbacks = (img.dataset.fallbacks || "").split("||").filter(Boolean);
+        img.addEventListener("error", function handleError() {
+          if (fallbacks.length) {
+            img.src = fallbacks.shift();
+            return;
+          }
+          img.style.display = "none";
+          const fallback = img.nextElementSibling;
+          if (fallback) fallback.style.display = "flex";
+        });
+      });
+    }
+
     function render() {
       const owned = ownedSet();
       const visible = filteredCards();
-      const scope = displayMode === "pokemon" ? cards.filter(c => c.pokemon) : cards;
+      const allCards = cards();
+      const scope = checklist().supportsPokemonOnly && displayMode === "pokemon"
+        ? allCards.filter(c => c.pokemon)
+        : allCards;
       const have = scope.filter(c => owned.has(c.id)).length;
       const pct = scope.length ? Math.round((have / scope.length) * 100) : 0;
       const unlocked = isUnlocked();
 
       $("#collectorStat").textContent = activeUser;
+      $("#checklistStat").textContent = checklist().title;
       $("#collectedStat").textContent = `${have} / ${scope.length}`;
       $("#progressBar").style.width = `${pct}%`;
-      $("#gridTitle").textContent = displayMode === "pokemon" ? "Pokémon cards" : "Full 120-card set";
+      $("#gridTitle").textContent = activeChecklist === "pitch-black"
+        ? (displayMode === "pokemon" ? "Pokémon cards" : "Full 120-card set")
+        : "Tepig, Pignite & Emboar cards";
       $("#visibleCount").textContent = `${visible.length} shown • ${pct}% complete`;
+
+      const modeButtons = $("#modeButtons");
+      modeButtons.style.display = checklist().supportsPokemonOnly ? "contents" : "none";
+      document.querySelectorAll(".seg-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.mode === displayMode)
+      );
 
       const authBtn = $("#authButton");
       authBtn.textContent = unlocked ? `Lock ${activeUser}` : `Unlock ${activeUser}`;
       authBtn.classList.toggle("unlocked", unlocked);
       $("#save").hidden = !unlocked;
 
-      const last = state[activeUser]?.lastSaved;
+      const last = state[activeChecklist]?.[activeUser]?.lastSaved;
       const accessText = unlocked ? "Editing enabled" : "Read-only";
       const syncText = cloudAvailable ? "Cloud sync ready" : "Cloud sync unavailable";
       $("#saveStatus").innerHTML = `<span class="sync-dot ${cloudAvailable ? "cloud" : ""}"></span>${accessText}<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:3px">${syncText}${last ? ` • Last save: ${new Date(last).toLocaleString()}` : ""}</div>`;
       $("#accessHint").textContent = unlocked
-        ? `You can edit ${activeUser}'s checklist on this device.`
-        : `You are viewing ${activeUser}'s checklist read-only. Unlock with ${activeUser}'s PIN to make changes.`;
+        ? `You can edit ${activeUser}'s ${checklist().title} checklist on this device.`
+        : `You are viewing ${activeUser}'s ${checklist().title} checklist read-only. Unlock with ${activeUser}'s PIN to make changes.`;
 
       if (!visible.length) {
         gridEl.innerHTML = `<div class="empty">No cards match this view.</div>`;
@@ -556,19 +661,21 @@
       }
 
       gridEl.innerHTML = visible.map(c => `
-        <article class="card ${owned.has(c.id) ? "owned" : ""} ${unlocked ? "" : "locked"}" data-id="${c.id}" tabindex="0" role="checkbox" aria-readonly="${!unlocked}" aria-checked="${owned.has(c.id)}" aria-label="${c.name} ${c.id}">
+        <article class="card ${owned.has(c.id) ? "owned" : ""} ${unlocked ? "" : "locked"}" data-id="${c.id}" tabindex="0" role="checkbox" aria-readonly="${!unlocked}" aria-checked="${owned.has(c.id)}" aria-label="${c.name} ${c.displayNumber}">
           <div class="card-image-wrap">
-            <img src="${c.image}" alt="${c.name} Pitch Black ${c.id}" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
-            <div class="fallback">${c.name}<br>#${c.id}</div>
+            <img src="${c.images[0]}" data-fallbacks="${c.images.slice(1).join("||")}" alt="${c.name} ${c.set} ${c.displayNumber}" loading="lazy" decoding="async" />
+            <div class="fallback">${c.name}<br>${c.displayNumber}</div>
             <div class="owned-badge">✓</div>
             ${!unlocked ? `<div class="read-badge">VIEW</div>` : ""}
           </div>
           <div class="card-info">
             <div class="card-name">${c.name}</div>
-            <div class="card-meta"><span>#${c.id}/084</span><span class="kind">${c.pokemon ? "Pokémon" : "Trainer / Energy"}</span></div>
+            <div class="card-meta"><span>${c.displayNumber}</span><span class="kind">${activeChecklist === "pitch-black" ? (c.pokemon ? "Pokémon" : "Trainer / Energy") : c.set}</span></div>
           </div>
         </article>
       `).join("");
+
+      attachImageFallbacks();
 
       gridEl.querySelectorAll(".card").forEach(el => {
         const toggle = () => toggleCard(el.dataset.id);
@@ -586,7 +693,7 @@
       }
       const set = ownedSet();
       if (set.has(id)) set.delete(id); else set.add(id);
-      state[activeUser].owned = [...set].sort();
+      state[activeChecklist][activeUser].owned = [...set].sort();
       writeLocal();
       render();
     }
@@ -656,13 +763,14 @@
 
     async function loadCloudUser(user) {
       try {
-        const res = await fetch(`${API_URL}?user=${encodeURIComponent(user)}`, { cache: "no-store" });
+        const params = new URLSearchParams({ user, checklist: activeChecklist });
+        const res = await fetch(`${API_URL}?${params.toString()}`, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         cloudAvailable = true;
         if (data && Array.isArray(data.owned)) {
-          state[user].owned = data.owned.map(String);
-          state[user].lastSaved = data.lastSaved || null;
+          state[activeChecklist][user].owned = data.owned.map(String);
+          state[activeChecklist][user].lastSaved = data.lastSaved || null;
           writeLocal();
         }
       } catch {
@@ -676,7 +784,12 @@
         return;
       }
 
-      const payload = { user: activeUser, owned: state[activeUser].owned, lastSaved: new Date().toISOString() };
+      const payload = {
+        user: activeUser,
+        checklist: activeChecklist,
+        owned: state[activeChecklist][activeUser].owned,
+        lastSaved: new Date().toISOString()
+      };
 
       try {
         const res = await fetch(API_URL, {
@@ -698,9 +811,9 @@
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
         cloudAvailable = true;
-        state[activeUser].lastSaved = data.lastSaved || payload.lastSaved;
+        state[activeChecklist][activeUser].lastSaved = data.lastSaved || payload.lastSaved;
         writeLocal();
-        showToast(`${activeUser}'s checklist saved.`);
+        showToast(`${activeUser}'s ${checklist().title} checklist saved.`);
       } catch (err) {
         showToast(err.message || "Could not save the checklist.");
       }
@@ -708,6 +821,7 @@
     }
 
     document.querySelectorAll(".seg-btn").forEach(btn => btn.addEventListener("click", () => {
+      if (!checklist().supportsPokemonOnly) return;
       displayMode = btn.dataset.mode;
       document.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b === btn));
       render();
@@ -730,6 +844,7 @@
     });
     authModal.addEventListener("click", e => { if (e.target === authModal) closeAuthModal(); });
 
+    renderChecklists();
     renderProfiles();
     render();
     loadCloudUser(activeUser).then(render);

@@ -1,10 +1,13 @@
-const ALLOWED_USERS = new Set(["Isabella", "Steve", "Isaac", "Paul"]);
+const ALLOWED_USERS = new Set(["Isabella", "Haley", "Friend 2", "Friend 3?"]);
 const PIN_ENV = {
   Isabella: "PITCH_BLACK_PIN_ISABELLA",
-  Steve: "PITCH_BLACK_PIN_STEVE",
-  Isaac: "PITCH_BLACK_PIN_ISAAC",
-  Paul: "PITCH_BLACK_PIN_PAUL"
+  Haley: "PITCH_BLACK_PIN_HALEY",
+  "Friend 2": "PITCH_BLACK_PIN_FRIEND_2",
+  "Friend 3?": "PITCH_BLACK_PIN_FRIEND_3"
 };
+
+const CHECKLISTS = new Set(["pitch-black", "tepig-line"]);
+const TEPIG_LINE_IDS = new Set(["tepig-bwp-bw02", "tepig-mcd11-3", "tepig-mcd21-13", "tepig-bw1-15", "tepig-bw1-16", "tepig-bw11-25", "tepig-bwp-bw07", "tepig-bw7-24", "tepig-sm12-31", "tepig-swsh5-23", "tepig-swshp-swsh172", "tepig-wht-11", "tepig-wht-96", "tepig-asc-29", "tepig-mep-50", "pignite-bw1-17", "pignite-mcd12-4", "pignite-bw1-18", "pignite-bw11-26", "pignite-bw7-25", "pignite-sm12-32", "pignite-swsh5-24", "pignite-wht-12", "pignite-wht-97", "pignite-asc-30", "emboar-bw1-19", "emboar-bw1-20", "emboar-bwp-bw21", "emboar-bw4-100", "emboar-bw11-27", "emboar-bw7-26", "emboar-sm12-33", "emboar-swsh5-25", "emboar-wht-13", "emboar-wht-98", "emboar-xy9-14", "mega-emboar-asc-31", "mega-emboar-asc-273", "mega-emboar-mep-35"]);
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_LOGIN_ATTEMPTS = 8;
 const LOGIN_WINDOW_SECONDS = 10 * 60;
@@ -22,6 +25,31 @@ function json(data, status = 200) {
 
 function validUser(user) {
   return typeof user === "string" && ALLOWED_USERS.has(user);
+}
+
+function validChecklist(checklist) {
+  return typeof checklist === "string" && CHECKLISTS.has(checklist);
+}
+
+function storageKey(checklist, user) {
+  // Keep the original Pitch Black key format so existing saved Pitch Black data survives.
+  return checklist === "pitch-black" ? `pitch-black:${user}` : `tepig-line:${user}`;
+}
+
+function cleanOwned(checklist, owned) {
+  if (!Array.isArray(owned) || owned.length > 200) return null;
+
+  if (checklist === "pitch-black") {
+    return [...new Set(
+      owned.map(String).filter(id => /^\d{3}$/.test(id) && Number(id) >= 1 && Number(id) <= 120)
+    )].sort();
+  }
+
+  if (checklist === "tepig-line") {
+    return [...new Set(owned.map(String).filter(id => TEPIG_LINE_IDS.has(id)))].sort();
+  }
+
+  return null;
 }
 
 function bytesToBase64Url(bytes) {
@@ -104,7 +132,7 @@ function authHeaderToken(request) {
 
 function attemptKey(context, user) {
   const ip = context.request.headers.get("CF-Connecting-IP") || "unknown";
-  return `pitch-black:auth-attempts:${user}:${ip}`;
+  return `pokemon-checklists:auth-attempts:${user}:${ip}`;
 }
 
 async function login(context, body) {
@@ -135,13 +163,14 @@ async function login(context, body) {
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
   const user = url.searchParams.get("user");
+  const checklist = url.searchParams.get("checklist") || "pitch-black";
 
   if (!validUser(user)) return json({ error: "Invalid user" }, 400);
+  if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400);
   if (!context.env.PITCH_BLACK_CHECKLIST) return json({ error: "KV binding missing" }, 503);
 
-  // Public read: everyone in the group can view each collector's checklist.
-  const saved = await context.env.PITCH_BLACK_CHECKLIST.get(`pitch-black:${user}`, { type: "json" });
-  return json(saved || { user, owned: [], lastSaved: null });
+  const saved = await context.env.PITCH_BLACK_CHECKLIST.get(storageKey(checklist, user), { type: "json" });
+  return json(saved || { user, checklist, owned: [], lastSaved: null });
 }
 
 export async function onRequestPost(context) {
@@ -162,21 +191,21 @@ export async function onRequestPost(context) {
   const auth = await verifyToken(authHeaderToken(context.request), secret);
   if (!auth) return json({ error: "Unlock required" }, 401);
 
-  const { user, owned, lastSaved } = body || {};
+  const { user, checklist = "pitch-black", owned, lastSaved } = body || {};
   if (!validUser(user)) return json({ error: "Invalid user" }, 400);
+  if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400);
   if (auth.user !== user) return json({ error: "You can only edit your own checklist" }, 403);
-  if (!Array.isArray(owned)) return json({ error: "owned must be an array" }, 400);
 
-  const cleanOwned = [...new Set(
-    owned.map(String).filter(id => /^\d{3}$/.test(id) && Number(id) >= 1 && Number(id) <= 120)
-  )].sort();
+  const cleaned = cleanOwned(checklist, owned);
+  if (!cleaned) return json({ error: "Invalid owned-card list" }, 400);
 
   const record = {
     user,
-    owned: cleanOwned,
+    checklist,
+    owned: cleaned,
     lastSaved: typeof lastSaved === "string" ? lastSaved : new Date().toISOString()
   };
 
-  await context.env.PITCH_BLACK_CHECKLIST.put(`pitch-black:${user}`, JSON.stringify(record));
+  await context.env.PITCH_BLACK_CHECKLIST.put(storageKey(checklist, user), JSON.stringify(record));
   return json({ ok: true, ...record });
 }

@@ -11,7 +11,7 @@ const PIN_ENV = {
 };
 const CHECKLISTS = new Set(["pitch-black", "tepig-line"]);
 const TEPIG_LINE_IDS = new Set(["tepig-bwp-bw02", "tepig-mcd11-3", "tepig-mcd21-13", "tepig-bw1-15", "tepig-bw1-16", "tepig-bw11-25", "tepig-bwp-bw07", "tepig-bw7-24", "tepig-sm12-31", "tepig-swsh5-23", "tepig-swshp-swsh172", "tepig-wht-11", "tepig-wht-96", "tepig-asc-29", "tepig-mep-50", "pignite-bw1-17", "pignite-mcd12-4", "pignite-bw1-18", "pignite-bw11-26", "pignite-bw7-25", "pignite-sm12-32", "pignite-swsh5-24", "pignite-wht-12", "pignite-wht-97", "pignite-asc-30", "emboar-bw1-19", "emboar-bw1-20", "emboar-bwp-bw21", "emboar-bw4-100", "emboar-bw11-27", "emboar-bw7-26", "emboar-sm12-33", "emboar-swsh5-25", "emboar-wht-13", "emboar-wht-98", "emboar-xy9-14", "mega-emboar-asc-31", "mega-emboar-asc-273", "mega-emboar-mep-35"]);
-const VALID_STATUSES = new Set(["have", "need", "duplicate"]);
+const VALID_STATUSES = new Set(["have", "need"]);
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
 const MAX_LOGIN_ATTEMPTS = 8;
 const LOGIN_WINDOW_SECONDS = 10 * 60;
@@ -61,7 +61,12 @@ function cleanStatuses(checklist, statuses, owned) {
   if (statuses && typeof statuses === "object" && !Array.isArray(statuses)) {
     const entries = Object.entries(statuses); if (entries.length > 200) return null;
     for (const [rawId, value] of entries) {
-      const id = String(rawId); if (!validCardId(checklist, id) || !VALID_STATUSES.has(value)) return null; out[id] = value;
+      const id = String(rawId);
+      if (!validCardId(checklist, id)) return null;
+      // v7 migration: old Duplicate / trade entries still represent an owned card.
+      if (value === "duplicate") out[id] = "have";
+      else if (VALID_STATUSES.has(value)) out[id] = value;
+      else return null;
     }
     return out;
   }
@@ -72,7 +77,7 @@ function cleanStatuses(checklist, statuses, owned) {
   }
   return {};
 }
-function ownedFromStatuses(statuses) { return Object.entries(statuses).filter(([,s]) => s === "have" || s === "duplicate").map(([id]) => id).sort(); }
+function ownedFromStatuses(statuses) { return Object.entries(statuses).filter(([,s]) => s === "have").map(([id]) => id).sort(); }
 function normalizeRecord(user, checklist, raw) {
   const statuses = cleanStatuses(checklist, raw?.statuses, raw?.owned) || {};
   return { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: raw?.lastSaved || null, lastSavedBy: validUser(raw?.lastSavedBy) ? raw.lastSavedBy : (raw?.lastSaved ? user : null) };

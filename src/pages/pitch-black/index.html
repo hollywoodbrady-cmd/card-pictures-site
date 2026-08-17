@@ -15,12 +15,33 @@
       --text: #f7f7fb;
       --muted: #9ea3b0;
       --accent: #a66cff;
+      --accent-rgb: 166,108,255;
       --accent-2: #5ee7df;
+      --accent-2-rgb: 94,231,223;
+      --glow-1: rgba(166,108,255,.20);
+      --glow-2: rgba(94,231,223,.10);
       --border: #2a2e3b;
       --success: #61d095;
       --need: #ffbd5b;
       --danger: #ff6b7a;
       --shadow: 0 18px 45px rgba(0,0,0,.32);
+    }
+
+    body[data-theme="pitch-black"] {
+      --accent: #a66cff;
+      --accent-rgb: 166,108,255;
+      --accent-2: #5ee7df;
+      --accent-2-rgb: 94,231,223;
+      --glow-1: rgba(166,108,255,.20);
+      --glow-2: rgba(94,231,223,.10);
+    }
+    body[data-theme="tepig"] {
+      --accent: #ff7043;
+      --accent-rgb: 255,112,67;
+      --accent-2: #ffd166;
+      --accent-2-rgb: 255,209,102;
+      --glow-1: rgba(255,86,48,.21);
+      --glow-2: rgba(255,196,64,.12);
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -28,8 +49,8 @@
       margin: 0;
       min-height: 100vh;
       background:
-        radial-gradient(circle at 20% -10%, rgba(166,108,255,.20), transparent 34rem),
-        radial-gradient(circle at 95% 15%, rgba(94,231,223,.10), transparent 28rem),
+        radial-gradient(circle at 20% -10%, var(--glow-1), transparent 34rem),
+        radial-gradient(circle at 95% 15%, var(--glow-2), transparent 28rem),
         var(--bg);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -42,8 +63,8 @@
     header { padding: 34px 0 18px; }
     .eyebrow {
       display: inline-flex; align-items: center; gap: 8px; padding: 7px 11px;
-      border: 1px solid rgba(166,108,255,.35); background: rgba(166,108,255,.09);
-      color: #d9c4ff; border-radius: 999px; font-size: 12px; font-weight: 800;
+      border: 1px solid rgba(var(--accent-rgb),.40); background: rgba(var(--accent-rgb),.09);
+      color: var(--accent-2); border-radius: 999px; font-size: 12px; font-weight: 800;
       letter-spacing: .13em; text-transform: uppercase;
     }
     h1 { margin: 14px 0 5px; font-size: clamp(32px, 5vw, 64px); line-height: .98; letter-spacing: -.045em; }
@@ -63,28 +84,28 @@
       border-color: #50576d; transform: translateY(-1px);
     }
     .set-btn.active, .profile-btn.active, .seg-btn.active, .filter-btn.active {
-      border-color: rgba(166,108,255,.85);
-      background: linear-gradient(180deg, rgba(166,108,255,.23), rgba(166,108,255,.10));
-      box-shadow: inset 0 0 0 1px rgba(166,108,255,.12);
+      border-color: rgba(var(--accent-rgb),.85);
+      background: linear-gradient(180deg, rgba(var(--accent-rgb),.23), rgba(var(--accent-rgb),.10));
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb),.12);
     }
     .save-btn {
-      margin-left: auto; min-width: 128px; border-color: rgba(94,231,223,.45);
-      background: linear-gradient(135deg, rgba(94,231,223,.20), rgba(166,108,255,.19));
+      margin-left: auto; min-width: 128px; border-color: rgba(var(--accent-2-rgb),.45);
+      background: linear-gradient(135deg, rgba(var(--accent-2-rgb),.20), rgba(var(--accent-rgb),.19));
     }
-    .save-btn:hover { transform: translateY(-1px); border-color: rgba(94,231,223,.8); }
-    .save-btn.dirty { box-shadow: 0 0 0 3px rgba(94,231,223,.12); }
+    .save-btn:hover { transform: translateY(-1px); border-color: rgba(var(--accent-2-rgb),.8); }
+    .save-btn.dirty { box-shadow: 0 0 0 3px rgba(var(--accent-2-rgb),.12); }
     .utility-btn.unlocked { border-color: rgba(97,208,149,.55); color: #b9f5d2; }
     .search {
       flex: 1 1 230px; min-width: 180px; border: 1px solid var(--border); background: var(--panel);
       color: var(--text); border-radius: 12px; padding: 10px 12px; outline: none;
     }
-    .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
+    .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12); }
 
     .name-input {
       width: 100%; border: 1px solid var(--border); background: var(--panel); color: var(--text);
       border-radius: 12px; padding: 11px 12px; outline: none; margin-top: 8px;
     }
-    .name-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
+    .name-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12); }
     .update-meta {
       display: flex; justify-content: center; align-items: center; gap: 10px 18px; flex-wrap: wrap;
       margin: -2px 0 12px; color: var(--muted); font-size: 12px; text-align: center;
@@ -99,6 +120,10 @@
     .avatar.lg { width: 44px; height: 44px; padding: 3px; }
     .avatar.xl { width: 72px; height: 72px; padding: 4px; }
     .profile-btn { display: inline-flex; align-items: center; gap: 8px; }
+    .profile-btn.active .avatar {
+      border-color: rgba(var(--accent-rgb),.95);
+      box-shadow: 0 0 0 2px rgba(var(--accent-rgb),.34), 0 0 18px rgba(var(--accent-rgb),.30);
+    }
     .collector-value { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .collector-value span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .person-with-avatar { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
@@ -109,7 +134,7 @@
       color: var(--text); transition: .16s ease;
     }
     .avatar-option:hover { transform: translateY(-2px); border-color: #565e76; }
-    .avatar-option.active { border-color: rgba(166,108,255,.85); box-shadow: 0 0 0 2px rgba(166,108,255,.12); background: rgba(166,108,255,.09); }
+    .avatar-option.active { border-color: rgba(var(--accent-rgb),.85); box-shadow: 0 0 0 2px rgba(var(--accent-rgb),.12); background: rgba(var(--accent-rgb),.09); }
     .avatar-option img { width: 66px; height: 66px; border-radius: 50%; object-fit: contain; background: #242936; padding: 4px; }
     .avatar-option span { font-size: 10px; font-weight: 800; text-align: center; line-height: 1.2; overflow-wrap: anywhere; }
     .avatar-current { display: flex; align-items: center; gap: 13px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: rgba(255,255,255,.02); margin-top: 12px; }
@@ -137,7 +162,7 @@
     .access-meta-item b { color: #dfe2eb; }
     .access-meta-divider { color: #545a69; }
     .tool-row { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0 16px; }
-    .tool-btn.primary { border-color: rgba(166,108,255,.58); background: rgba(166,108,255,.12); }
+    .tool-btn.primary { border-color: rgba(var(--accent-rgb),.58); background: rgba(var(--accent-rgb),.12); }
     .dashboard { display: grid; grid-template-columns: 1.15fr 1fr 1.35fr; gap: 12px; margin-bottom: 18px; }
     .panel { padding: 15px; min-width: 0; }
     .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -151,10 +176,11 @@
     .mini-progress > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
     .badges { display: flex; flex-wrap: wrap; gap: 7px; }
     .milestone {
+      position: relative; overflow: hidden;
       padding: 7px 9px; border-radius: 999px; border: 1px solid var(--border); background: #141721;
       color: #8f94a4; font-size: 12px; font-weight: 800;
     }
-    .milestone.earned { color: #fff; border-color: rgba(166,108,255,.5); background: rgba(166,108,255,.13); }
+    .milestone.earned { color: #fff; border-color: rgba(var(--accent-rgb),.5); background: rgba(var(--accent-rgb),.13); }
     .activity-list { display: grid; gap: 8px; max-height: 190px; overflow: auto; padding-right: 3px; }
     .activity-item { border-bottom: 1px solid rgba(255,255,255,.055); padding-bottom: 8px; font-size: 12px; line-height: 1.4; }
     .activity-main { display: flex; align-items: flex-start; gap: 8px; }
@@ -166,7 +192,7 @@
     .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; color: var(--muted); font-size: 12px; }
     .legend span { display: inline-flex; align-items: center; gap: 5px; }
     .finish-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-    .finish-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 999px; font-size: 9px; line-height: 1; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); white-space: nowrap; }
+    .finish-tag { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: 4px; padding: 3px 7px; border-radius: 999px; font-size: 9px; line-height: 1; font-weight: 900; letter-spacing: .04em; text-transform: uppercase; border: 1px solid var(--border); white-space: nowrap; }
     .finish-tag.holo { color: #fff1a8; border-color: rgba(255,214,94,.52); background: linear-gradient(135deg, rgba(255,214,94,.16), rgba(255,125,210,.10)); }
     .finish-tag.reverse-holo { color: #cfeeff; border-color: rgba(106,197,255,.52); background: linear-gradient(135deg, rgba(106,197,255,.14), rgba(166,108,255,.12)); }
     .finish-tag::before { content: "✦"; font-size: 8px; opacity: .9; }
@@ -183,6 +209,7 @@
     .card:hover { transform: translateY(-3px); border-color: #464d61; }
     .card.status-have { border-color: rgba(97,208,149,.78); box-shadow: 0 0 0 1px rgba(97,208,149,.14), 0 14px 34px rgba(0,0,0,.24); }
     .card.status-need { border-color: rgba(255,189,91,.70); }
+    .card.just-have { animation: have-pop .68s cubic-bezier(.2,.78,.2,1); z-index: 2; }
     .card-image-wrap { position: relative; aspect-ratio: 744 / 1038; background: radial-gradient(circle at 40% 20%, #323849, #0f1118 62%); overflow: hidden; }
     .card img { width: 100%; height: 100%; display: block; object-fit: contain; transition: .2s ease; }
     .card:hover img { transform: scale(1.018); }
@@ -210,7 +237,7 @@
     .modal p { color: var(--muted); margin: 0 0 15px; line-height: 1.5; }
     .modal-lock { font-size: 30px; margin-bottom: 10px; }
     .pin-input { width: 100%; border: 1px solid var(--border); background: #090a0f; color: #fff; border-radius: 12px; padding: 12px 13px; outline: none; }
-    .pin-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(166,108,255,.12); }
+    .pin-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb),.12); }
     .auth-error { min-height: 20px; margin-top: 8px; color: #ff9aa5; font-size: 12px; }
     .modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 10px; }
     .toast { position: fixed; right: 18px; bottom: 18px; z-index: 120; max-width: min(420px, calc(100% - 36px)); background: #171a23; border: 1px solid #3a4051; border-radius: 13px; padding: 11px 14px; color: #fff; box-shadow: var(--shadow); transform: translateY(18px); opacity: 0; pointer-events: none; transition: .2s ease; font-size: 13px; }
@@ -262,6 +289,53 @@
     .compare-mobile-person .status-pill { flex: 0 0 auto; }
     .export-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
     .mobile-bar { display: none; }
+
+    @keyframes have-pop {
+      0% { transform: scale(.985); box-shadow: 0 0 0 0 rgba(97,208,149,0); }
+      42% { transform: scale(1.035); box-shadow: 0 0 0 4px rgba(97,208,149,.22), 0 0 34px rgba(97,208,149,.32); }
+      100% { transform: scale(1); box-shadow: 0 0 0 1px rgba(97,208,149,.14), 0 14px 34px rgba(0,0,0,.24); }
+    }
+    @keyframes save-flash {
+      0% { border-color: var(--border); box-shadow: none; }
+      35% { border-color: rgba(97,208,149,.9); box-shadow: 0 0 0 3px rgba(97,208,149,.14), 0 0 28px rgba(97,208,149,.18); }
+      100% { border-color: var(--border); box-shadow: none; }
+    }
+    @keyframes save-check {
+      0% { opacity: 0; transform: translateY(5px) scale(.75); }
+      35% { opacity: 1; transform: translateY(0) scale(1.08); }
+      100% { opacity: 0; transform: translateY(-4px) scale(1); }
+    }
+    .stat.save-success { position: relative; animation: save-flash .85s ease; }
+    .stat.save-success::after {
+      content: "✓"; position: absolute; right: 12px; top: 10px; color: #b9f5d2; font-size: 22px; font-weight: 950;
+      text-shadow: 0 0 16px rgba(97,208,149,.55); animation: save-check .85s ease both; pointer-events: none;
+    }
+    @keyframes milestone-sheen {
+      0% { transform: translateX(-170%) skewX(-18deg); opacity: 0; }
+      25% { opacity: .85; }
+      100% { transform: translateX(260%) skewX(-18deg); opacity: 0; }
+    }
+    .milestone.newly-earned::after {
+      content: ""; position: absolute; inset: -20% auto -20% -45%; width: 34%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent);
+      animation: milestone-sheen .95s ease-out 1; pointer-events: none;
+    }
+    @keyframes foil-sheen {
+      from { transform: translateX(-180%) skewX(-22deg); }
+      to { transform: translateX(260%) skewX(-22deg); }
+    }
+    .finish-tag::after {
+      content: ""; position: absolute; inset: -50% auto -50% -35%; width: 28%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent);
+      transform: translateX(-180%) skewX(-22deg); pointer-events: none;
+    }
+    @media (hover: hover) { .finish-tag:hover::after { animation: foil-sheen .72s ease-out 1; } }
+    .finish-tag:active::after { animation: foil-sheen .6s ease-out 1; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+      .card:hover, .set-btn:hover, .profile-btn:hover, .seg-btn:hover, .filter-btn:hover, .utility-btn:hover, .tool-btn:hover, .status-btn:hover { transform: none; }
+    }
     @media (max-width: 1050px) {
       .stats { grid-template-columns: repeat(3, minmax(0,1fr)); }
       .dashboard { grid-template-columns: 1fr 1fr; }
@@ -314,11 +388,10 @@
     }
   </style>
 </head>
-<body>
+<body data-theme="pitch-black">
   <header class="wrap">
     <span class="eyebrow">Shared Pokémon collection</span>
     <h1>Pokémon Checklists</h1>
-    <p class="subtitle">Track what you have, flag what you need, compare all four collections, and quickly spot Holo and Reverse Holo cards without exposing anyone’s edit access.</p>
   </header>
 
   <div class="toolbar">
@@ -446,8 +519,8 @@
     const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley" });
     const DISPLAY_NAMES_STORAGE_KEY = "pokemon-shared-checklists-display-names-v1";
     const AVATARS_STORAGE_KEY = "pokemon-shared-checklists-avatars-v1";
-    const SITE_UPDATED_AT = "2026-08-16T20:51:00-07:00";
-    const SITE_VERSION = "v9";
+    const SITE_UPDATED_AT = "2026-08-16T21:00:00-07:00";
+    const SITE_VERSION = "v11";
     const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face" });
     function svgData(svg) { return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; }
     function redPandaSvg(mode) {
@@ -560,6 +633,8 @@
     let authTokens = loadAuthTokens();
     let displayNames = loadDisplayNames();
     let profileAvatars = loadAvatars();
+    let justMarkedHave = null;
+    const milestoneSnapshots = new Map();
 
     function blankRecord() { return { statuses: {}, lastSaved: null, lastSavedBy: null }; }
     function defaultState() { return Object.fromEntries(Object.keys(CHECKLISTS).map(cid => [cid, Object.fromEntries(USERS.map(u => [u, blankRecord()]))])); }
@@ -655,6 +730,12 @@
     function personHtml(user, size = "sm") { return `<span class="person-with-avatar">${avatarHtml(user, size)}<b>${esc(displayName(user))}</b></span>`; }
     function loadDirty() { try { const p = JSON.parse(localStorage.getItem(DIRTY_STORAGE_KEY) || "[]"); return new Set(Array.isArray(p) ? p : []); } catch { return new Set(); } }
     function writeDirty() { localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify([...dirty])); }
+    function applyTheme() {
+      const theme = activeChecklist === "tepig-line" ? "tepig" : "pitch-black";
+      document.body.dataset.theme = theme;
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta) themeMeta.setAttribute("content", theme === "tepig" ? "#2b120d" : "#0a0a0f");
+    }
     function checklist(id = activeChecklist) { return CHECKLISTS[id]; }
     function cards(id = activeChecklist) { return checklist(id).cards; }
     function cardById(cid, cardId) { return cards(cid).find(c => c.id === cardId); }
@@ -769,7 +850,16 @@
       }
       return items;
     }
-    function renderMilestones() { $("#milestones").innerHTML = milestoneData().map(([label, earned]) => `<span class="milestone ${earned ? "earned" : ""}">${label}</span>`).join(""); }
+    function renderMilestones() {
+      const data = milestoneData();
+      const key = `${activeChecklist}|${activeUser}`;
+      const previous = milestoneSnapshots.get(key);
+      $("#milestones").innerHTML = data.map(([label, earned], index) => {
+        const newlyEarned = Array.isArray(previous) && earned && !previous[index];
+        return `<span class="milestone ${earned ? "earned" : ""} ${newlyEarned ? "newly-earned" : ""}">${label}</span>`;
+      }).join("");
+      milestoneSnapshots.set(key, data.map(([, earned]) => !!earned));
+    }
     function activityText(entry) {
       const c = cardById(entry.checklist, entry.cardId); const name = c ? `${c.name} ${c.displayNumber}` : entry.cardId;
       if (entry.to === "none") return `<b>${esc(displayName(entry.user))}</b> marked ${esc(name)} as <b>Need</b>`;
@@ -788,7 +878,9 @@
       document.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === displayMode));
       if (!visible.length) { gridEl.innerHTML = `<div class="empty">No cards match this view.</div>`; return; }
       gridEl.innerHTML = visible.map(c => {
-        const s = statusOf(c.id); const cls = `status-${s}`;
+        const s = statusOf(c.id);
+        const pulseHave = justMarkedHave && justMarkedHave.cardId === c.id && justMarkedHave.user === activeUser && justMarkedHave.checklist === activeChecklist;
+        const cls = `status-${s}${pulseHave ? " just-have" : ""}`;
         return `<article class="card ${cls}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="Open ${esc(c.name)} ${esc(c.displayNumber)} details. ${esc(statusLabel(s))}.">
           <div class="card-image-wrap"><img src="${esc(c.images[0])}" data-fallbacks="${esc(c.images.slice(1).join("||"))}" alt="${esc(c.name)} ${esc(c.set)} ${esc(c.displayNumber)}" loading="lazy" decoding="async" /><div class="fallback">${esc(c.name)}<br>${esc(c.displayNumber)}</div>
           <div class="status-badge have">HAVE</div><div class="status-badge need">NEED</div>${!isUnlocked() ? `<div class="read-badge">VIEW</div>` : ""}</div>
@@ -801,13 +893,21 @@
         el.addEventListener("click", open); el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
       });
     }
-    function renderAll() { renderChecklists(); renderProfiles(); renderStats(); renderBreakdown(); renderMilestones(); renderActivity(); renderGrid(); if (modalCardId && cardModal.classList.contains("show")) renderCardModal(); }
+    function renderAll() { applyTheme(); renderChecklists(); renderProfiles(); renderStats(); renderBreakdown(); renderMilestones(); renderActivity(); renderGrid(); if (modalCardId && cardModal.classList.contains("show")) renderCardModal(); }
 
     function setStatus(cardId, nextStatus) {
       if (!isUnlocked()) { closeCardModal(); openAuthModal(); return; }
       if (!VALID_STATUSES.has(nextStatus)) return;
+      const previous = statusOf(cardId);
+      if (nextStatus === "have" && previous !== "have") justMarkedHave = { cardId, user: activeUser, checklist: activeChecklist };
       record().statuses[cardId] = nextStatus;
       dirty.add(dirtyKey()); writeDirty(); writeLocal(); renderAll();
+      if (justMarkedHave?.cardId === cardId) {
+        window.setTimeout(() => {
+          gridEl.querySelectorAll(".card.just-have").forEach(el => el.classList.remove("just-have"));
+          if (justMarkedHave?.cardId === cardId && justMarkedHave?.user === activeUser && justMarkedHave?.checklist === activeChecklist) justMarkedHave = null;
+        }, 760);
+      }
     }
     function openCardModal(cardId) { modalCardId = cardId; renderCardModal(); cardModal.classList.add("show"); cardModal.setAttribute("aria-hidden", "false"); }
     function closeCardModal() { cardModal.classList.remove("show"); cardModal.setAttribute("aria-hidden", "true"); modalCardId = null; }
@@ -870,7 +970,7 @@
         if (res.status === 401 || res.status === 403) { delete authTokens[activeUser]; writeAuthTokens(); renderAll(); throw new Error("Your edit access expired. Unlock again."); }
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         cloudAvailable = true; state[activeChecklist][activeUser] = { statuses: normalizeStatuses(data.statuses, data.owned), lastSaved: data.lastSaved || new Date().toISOString(), lastSavedBy: data.lastSavedBy || activeUser };
-        dirty.delete(dirtyKey()); writeDirty(); writeLocal(); await refreshCloud(activeChecklist); renderAll(); showToast(`${displayName()}'s ${checklist().title} changes saved.`);
+        dirty.delete(dirtyKey()); writeDirty(); writeLocal(); await refreshCloud(activeChecklist); renderAll(); flashSaveSuccess(); showToast(`${displayName()}'s ${checklist().title} changes saved.`);
       } catch (err) { showToast(err.message || "Could not save the checklist."); }
     }
 
@@ -980,6 +1080,14 @@
       } catch (err) { error.textContent = err.message || "Could not prepare that photo."; }
     }
 
+    function flashSaveSuccess() {
+      const stat = $("#saveStatus")?.closest(".stat");
+      if (!stat) return;
+      stat.classList.remove("save-success");
+      void stat.offsetWidth;
+      stat.classList.add("save-success");
+      window.setTimeout(() => stat.classList.remove("save-success"), 900);
+    }
     function showToast(message) { toastEl.textContent = message; toastEl.classList.add("show"); clearTimeout(showToast.timer); showToast.timer = setTimeout(() => toastEl.classList.remove("show"), 3000); }
 
     document.querySelectorAll(".seg-btn").forEach(btn => btn.addEventListener("click", () => { if (!checklist().supportsPokemonOnly) return; displayMode = btn.dataset.mode; renderAll(); }));

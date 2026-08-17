@@ -27,6 +27,15 @@ function validCardId(checklist, id) {
   if (checklist === "pitch-black") return /^\d{3}$/.test(id) && Number(id) >= 1 && Number(id) <= 120;
   return checklist === "tepig-line" && TEPIG_LINE_IDS.has(id);
 }
+function allCardIds(checklist) {
+  if (checklist === "pitch-black") return Array.from({ length: 120 }, (_, index) => String(index + 1).padStart(3, "0"));
+  return checklist === "tepig-line" ? [...TEPIG_LINE_IDS] : [];
+}
+function withDefaultNeeds(checklist, explicitStatuses = {}) {
+  const statuses = Object.fromEntries(allCardIds(checklist).map(id => [id, "need"]));
+  for (const [id, value] of Object.entries(explicitStatuses || {})) statuses[id] = value === "have" || value === "duplicate" ? "have" : "need";
+  return statuses;
+}
 function storageKey(checklist, user) { return checklist === "pitch-black" ? `pitch-black:${user}` : `tepig-line:${user}`; }
 function activityKey(checklist) { return `pokemon-checklists:activity:${checklist}`; }
 function displayNameKey(user) { return `pokemon-checklists:display-name:${user}`; }
@@ -63,7 +72,7 @@ function cleanStatuses(checklist, statuses, owned) {
     for (const [rawId, value] of entries) {
       const id = String(rawId);
       if (!validCardId(checklist, id)) return null;
-      // v7 migration: old Duplicate / trade entries still represent an owned card.
+      // v8 migration: old Duplicate / trade entries still represent an owned card; all other valid cards default to Need.
       if (value === "duplicate") out[id] = "have";
       else if (VALID_STATUSES.has(value)) out[id] = value;
       else return null;
@@ -79,7 +88,8 @@ function cleanStatuses(checklist, statuses, owned) {
 }
 function ownedFromStatuses(statuses) { return Object.entries(statuses).filter(([,s]) => s === "have").map(([id]) => id).sort(); }
 function normalizeRecord(user, checklist, raw) {
-  const statuses = cleanStatuses(checklist, raw?.statuses, raw?.owned) || {};
+  const explicit = cleanStatuses(checklist, raw?.statuses, raw?.owned) || {};
+  const statuses = withDefaultNeeds(checklist, explicit);
   return { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: raw?.lastSaved || null, lastSavedBy: validUser(raw?.lastSavedBy) ? raw.lastSavedBy : (raw?.lastSaved ? user : null) };
 }
 function bytesToBase64Url(bytes) { let binary = ""; for (const byte of bytes) binary += String.fromCharCode(byte); return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, ""); }
@@ -159,13 +169,14 @@ export async function onRequestPost(context) {
   if (body?.action === "rename") return renameProfile(context, auth, body);
   if (body?.action === "avatar") return updateAvatar(context, auth, body);
   const { user, checklist = "pitch-black" } = body || {}; if (!validUser(user)) return json({ error: "Invalid user" }, 400); if (!validChecklist(checklist)) return json({ error: "Invalid checklist" }, 400); if (auth.user !== user) return json({ error: "You can only edit your own checklist" }, 403);
-  const statuses = cleanStatuses(checklist, body.statuses, body.owned); if (!statuses) return json({ error: "Invalid card status data" }, 400);
+  const cleanedStatuses = cleanStatuses(checklist, body.statuses, body.owned); if (!cleanedStatuses) return json({ error: "Invalid card status data" }, 400);
+  const statuses = withDefaultNeeds(checklist, cleanedStatuses);
   const previous = await getRecord(context, checklist, user); const now = new Date().toISOString();
   const record = { user, checklist, statuses, owned: ownedFromStatuses(statuses), lastSaved: now, lastSavedBy: user };
   await context.env.PITCH_BLACK_CHECKLIST.put(storageKey(checklist, user), JSON.stringify(record));
   const ids = new Set([...Object.keys(previous.statuses), ...Object.keys(statuses)]); const changes = [];
   for (const cardId of ids) {
-    const from = previous.statuses[cardId] || "none", to = statuses[cardId] || "none";
+    const from = previous.statuses[cardId] === "have" ? "have" : "need", to = statuses[cardId] === "have" ? "have" : "need";
     if (from !== to) changes.push({ id: crypto.randomUUID(), user, checklist, cardId, from, to, at: now });
   }
   await appendActivity(context, checklist, changes.slice(0, 40));

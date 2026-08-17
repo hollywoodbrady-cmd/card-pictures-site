@@ -446,8 +446,8 @@
     const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
     const DISPLAY_NAMES_STORAGE_KEY = "pokemon-shared-checklists-display-names-v1";
     const AVATARS_STORAGE_KEY = "pokemon-shared-checklists-avatars-v1";
-    const SITE_UPDATED_AT = "2026-08-16T20:32:00-07:00";
-    const SITE_VERSION = "v7";
+    const SITE_UPDATED_AT = "2026-08-16T20:47:00-07:00";
+    const SITE_VERSION = "v8";
     const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", "Friend 2": "pikachu", "Friend 3?": "rowlet" });
     function svgData(svg) { return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; }
     function redPandaSvg(mode) {
@@ -567,7 +567,7 @@
       const out = {};
       if (rawStatuses && typeof rawStatuses === "object" && !Array.isArray(rawStatuses)) {
         for (const [id, value] of Object.entries(rawStatuses)) {
-          // v7 migration: an old Have status still means the collector owns the card.
+          // v8 migration: old Duplicate / trade entries still count as Have; every other card defaults to Need.
           if (value === "duplicate") out[String(id)] = "have";
           else if (VALID_STATUSES.has(value)) out[String(id)] = value;
         }
@@ -659,15 +659,15 @@
     function cards(id = activeChecklist) { return checklist(id).cards; }
     function cardById(cid, cardId) { return cards(cid).find(c => c.id === cardId); }
     function record(cid = activeChecklist, user = activeUser) { return state[cid][user]; }
-    function statusOf(cardId, user = activeUser, cid = activeChecklist) { return state[cid]?.[user]?.statuses?.[cardId] || "none"; }
+    function statusOf(cardId, user = activeUser, cid = activeChecklist) { return state[cid]?.[user]?.statuses?.[cardId] === "have" ? "have" : "need"; }
     function collected(status) { return status === "have"; }
     function isUnlocked(user = activeUser) { return typeof authTokens[user] === "string" && authTokens[user].length > 20; }
     function dirtyKey(cid = activeChecklist, user = activeUser) { return `${cid}|${user}`; }
     function isDirty(cid = activeChecklist, user = activeUser) { return dirty.has(dirtyKey(cid, user)); }
     function scopeCards(cid = activeChecklist) { const all = cards(cid); return checklist(cid).supportsPokemonOnly && displayMode === "pokemon" ? all.filter(c => c.pokemon) : all; }
     function esc(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])); }
-    function statusLabel(s) { return ({ none: "Unmarked", have: "Have", need: "Need", duplicate: "Have" })[s] || "Unmarked"; }
-    function statusShort(s) { return ({ none: "—", have: "HAVE", need: "NEED", duplicate: "HAVE" })[s] || "—"; }
+    function statusLabel(s) { return s === "have" || s === "duplicate" ? "Have" : "Need"; }
+    function statusShort(s) { return s === "have" || s === "duplicate" ? "HAVE" : "NEED"; }
     function finishClass(label) { return label.toLowerCase().replace(/\s+/g, "-"); }
     function finishTagsHtml(card, compact = false) {
       const finishes = Array.isArray(card?.finishes) ? card.finishes : [];
@@ -772,7 +772,7 @@
     function renderMilestones() { $("#milestones").innerHTML = milestoneData().map(([label, earned]) => `<span class="milestone ${earned ? "earned" : ""}">${label}</span>`).join(""); }
     function activityText(entry) {
       const c = cardById(entry.checklist, entry.cardId); const name = c ? `${c.name} ${c.displayNumber}` : entry.cardId;
-      if (entry.to === "none") return `<b>${esc(displayName(entry.user))}</b> cleared ${esc(name)}`;
+      if (entry.to === "none") return `<b>${esc(displayName(entry.user))}</b> marked ${esc(name)} as <b>Need</b>`;
       return `<b>${esc(displayName(entry.user))}</b> marked ${esc(name)} as <b>${esc(statusLabel(entry.to))}</b>`;
     }
     function renderActivity() {
@@ -788,7 +788,7 @@
       document.querySelectorAll(".seg-btn").forEach(b => b.classList.toggle("active", b.dataset.mode === displayMode));
       if (!visible.length) { gridEl.innerHTML = `<div class="empty">No cards match this view.</div>`; return; }
       gridEl.innerHTML = visible.map(c => {
-        const s = statusOf(c.id); const cls = s === "none" ? "" : `status-${s}`;
+        const s = statusOf(c.id); const cls = `status-${s}`;
         return `<article class="card ${cls}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="Open ${esc(c.name)} ${esc(c.displayNumber)} details. ${esc(statusLabel(s))}.">
           <div class="card-image-wrap"><img src="${esc(c.images[0])}" data-fallbacks="${esc(c.images.slice(1).join("||"))}" alt="${esc(c.name)} ${esc(c.set)} ${esc(c.displayNumber)}" loading="lazy" decoding="async" /><div class="fallback">${esc(c.name)}<br>${esc(c.displayNumber)}</div>
           <div class="status-badge have">HAVE</div><div class="status-badge need">NEED</div>${!isUnlocked() ? `<div class="read-badge">VIEW</div>` : ""}</div>
@@ -805,9 +805,8 @@
 
     function setStatus(cardId, nextStatus) {
       if (!isUnlocked()) { closeCardModal(); openAuthModal(); return; }
-      if (nextStatus !== "none" && !VALID_STATUSES.has(nextStatus)) return;
-      const statuses = record().statuses;
-      if (nextStatus === "none") delete statuses[cardId]; else statuses[cardId] = nextStatus;
+      if (!VALID_STATUSES.has(nextStatus)) return;
+      record().statuses[cardId] = nextStatus;
       dirty.add(dirtyKey()); writeDirty(); writeLocal(); renderAll();
     }
     function openCardModal(cardId) { modalCardId = cardId; renderCardModal(); cardModal.classList.add("show"); cardModal.setAttribute("aria-hidden", "false"); }
@@ -820,7 +819,7 @@
       $("#detailFields").innerHTML = `<div class="field"><b>Set</b>${esc(c.set)}</div><div class="field"><b>Card number</b>${esc(c.displayNumber)}</div><div class="field"><b>Year</b>${esc(c.year ?? "—")}</div><div class="field"><b>Print type</b>${esc(c.printType || "—")}</div><div class="field"><b>Rarity</b>${esc(c.rarity || "Not cataloged")}</div><div class="field"><b>Foil tags</b>${finishTagsHtml(c) || `<span class="tiny">None listed</span>`}</div><div class="field"><b>${esc(displayName())} status</b>${esc(statusLabel(statusOf(c.id)))}</div>`;
       const current = statusOf(c.id); $("#statusEditorTitle").textContent = `${displayName()}'s status`;
       $("#statusActions").innerHTML = [
-        ["none","Clear"], ["need","⭐ Need"], ["have","✓ Have"]
+        ["need","⭐ Need"], ["have","✓ Have"]
       ].map(([s,label]) => `<button class="status-btn ${current === s ? "active" : ""}" data-status="${s}" ${!isUnlocked() ? "disabled" : ""}>${label}</button>`).join("");
       $("#statusHelp").innerHTML = isUnlocked() ? `Choose a status, then press <b>Save changes</b> to sync it for everyone.` : `Read-only. <button id="detailUnlock" class="utility-btn" style="padding:5px 8px;margin-left:5px">Unlock ${esc(displayName())}</button> to edit.`;
       $("#statusActions").querySelectorAll("button").forEach(b => b.addEventListener("click", () => setStatus(c.id, b.dataset.status)));
@@ -890,13 +889,13 @@
       await Promise.all(Object.keys(CHECKLISTS).flatMap(cid => [loadAllCloud(cid), loadActivity(cid)])); writeLocal();
       const exportedAt = new Date().toISOString();
       if (format === "json") {
-        const payload = { version: 7, exportedAt, displayNames, avatars: profileAvatars, collections: state, activity: activityByChecklist, siteUpdatedAt: SITE_UPDATED_AT };
+        const payload = { version: 8, exportedAt, displayNames, avatars: profileAvatars, collections: state, activity: activityByChecklist, siteUpdatedAt: SITE_UPDATED_AT };
         downloadBlob(`pokemon-checklists-backup-${exportedAt.slice(0,10)}.json`, JSON.stringify(payload, null, 2), "application/json"); showToast("JSON backup downloaded.");
       } else {
         const q = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
         const rows = [["Checklist","Collector","Card ID","Pokemon / Card","Set","Number","Foil Tags","Status","Last Saved","Last Updated By"]];
         for (const [cid, cfg] of Object.entries(CHECKLISTS)) for (const user of USERS) for (const c of cfg.cards) {
-          const s = statusOf(c.id, user, cid); if (s === "none") continue;
+          const s = statusOf(c.id, user, cid);
           rows.push([cfg.title,displayName(user),c.id,c.name,c.set,c.displayNumber,(c.finishes || []).join(" | "),statusLabel(s),state[cid][user].lastSaved || "",state[cid][user].lastSavedBy ? displayName(state[cid][user].lastSavedBy) : ""]);
         }
         downloadBlob(`pokemon-checklists-${exportedAt.slice(0,10)}.csv`, rows.map(r => r.map(q).join(",")).join("\r\n"), "text/csv;charset=utf-8"); showToast("CSV export downloaded.");

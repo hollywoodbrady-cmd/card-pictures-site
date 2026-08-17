@@ -1,13 +1,11 @@
-const ALLOWED_USERS = new Set(["Isabella", "Haley", "Friend 2", "Friend 3?"]);
-const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
-const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", "Friend 2": "pikachu", "Friend 3?": "rowlet" });
+const ALLOWED_USERS = new Set(["Isabella", "Haley"]);
+const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley" });
+const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face" });
 const AVATAR_PRESETS = new Set(["red-panda-face","red-panda-body","red-panda-sleepy","red-panda-berry","eevee","pikachu","vulpix","jigglypuff","mew","togepi","teddiursa","skitty","piplup","minccino","emolga","rowlet","rockruff","yamper","sprigatito","pawmi"]);
 const MAX_CUSTOM_AVATAR_LENGTH = 300000;
 const PIN_ENV = {
   Isabella: "PITCH_BLACK_PIN_ISABELLA",
-  Haley: "PITCH_BLACK_PIN_HALEY",
-  "Friend 2": "PITCH_BLACK_PIN_FRIEND_2",
-  "Friend 3?": "PITCH_BLACK_PIN_FRIEND_3"
+  Haley: "PITCH_BLACK_PIN_HALEY"
 };
 const CHECKLISTS = new Set(["pitch-black", "tepig-line"]);
 const TEPIG_LINE_IDS = new Set(["tepig-bwp-bw02", "tepig-mcd11-3", "tepig-mcd21-13", "tepig-bw1-15", "tepig-bw1-16", "tepig-bw11-25", "tepig-bwp-bw07", "tepig-bw7-24", "tepig-sm12-31", "tepig-swsh5-23", "tepig-swshp-swsh172", "tepig-wht-11", "tepig-wht-96", "tepig-asc-29", "tepig-mep-50", "pignite-bw1-17", "pignite-mcd12-4", "pignite-bw1-18", "pignite-bw11-26", "pignite-bw7-25", "pignite-sm12-32", "pignite-swsh5-24", "pignite-wht-12", "pignite-wht-97", "pignite-asc-30", "emboar-bw1-19", "emboar-bw1-20", "emboar-bwp-bw21", "emboar-bw4-100", "emboar-bw11-27", "emboar-bw7-26", "emboar-sm12-33", "emboar-swsh5-25", "emboar-wht-13", "emboar-wht-98", "emboar-xy9-14", "mega-emboar-asc-31", "mega-emboar-asc-273", "mega-emboar-mep-35"]);

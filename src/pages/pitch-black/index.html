@@ -442,13 +442,13 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const USERS = ["Isabella", "Haley", "Friend 2", "Friend 3?"]; // Stable account IDs; visible names can change.
-    const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", "Friend 2": "Friend 2", "Friend 3?": "Friend 3?" });
+    const USERS = ["Isabella", "Haley"]; // Stable account IDs; visible names can change.
+    const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley" });
     const DISPLAY_NAMES_STORAGE_KEY = "pokemon-shared-checklists-display-names-v1";
     const AVATARS_STORAGE_KEY = "pokemon-shared-checklists-avatars-v1";
-    const SITE_UPDATED_AT = "2026-08-16T20:47:00-07:00";
-    const SITE_VERSION = "v8";
-    const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", "Friend 2": "pikachu", "Friend 3?": "rowlet" });
+    const SITE_UPDATED_AT = "2026-08-16T20:51:00-07:00";
+    const SITE_VERSION = "v9";
+    const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face" });
     function svgData(svg) { return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; }
     function redPandaSvg(mode) {
       const body = mode === "body" || mode === "berry";

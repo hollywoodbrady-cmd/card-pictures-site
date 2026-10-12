@@ -43,6 +43,23 @@
       --glow-1: rgba(255,86,48,.21);
       --glow-2: rgba(255,196,64,.12);
     }
+
+    body[data-theme="celebration"] {
+      --accent: #ffcb05;
+      --accent-rgb: 255,203,5;
+      --accent-2: #4f8cff;
+      --accent-2-rgb: 79,140,255;
+      --glow-1: rgba(255,203,5,.18);
+      --glow-2: rgba(255,92,171,.13);
+    }
+    body[data-theme="star-wars"] {
+      --accent: #ffe81f;
+      --accent-rgb: 255,232,31;
+      --accent-2: #6ea8ff;
+      --accent-2-rgb: 110,168,255;
+      --glow-1: rgba(255,232,31,.12);
+      --glow-2: rgba(64,112,255,.14);
+    }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body {
@@ -515,14 +532,48 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const USERS = ["Isabella", "Haley"]; // Stable account IDs; visible names can change.
-    const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley" });
+    const USERS = ["Isabella", "Haley", "Jeremy", "Steve"]; // Stable account IDs; visible names can change.
+    const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", Jeremy: "Jeremy", Steve: "Steve" });
     const DISPLAY_NAMES_STORAGE_KEY = "pokemon-shared-checklists-display-names-v1";
     const AVATARS_STORAGE_KEY = "pokemon-shared-checklists-avatars-v1";
-    const SITE_UPDATED_AT = "2026-08-16T21:00:00-07:00";
-    const SITE_VERSION = "v11";
-    const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face" });
+    const SITE_UPDATED_AT = "2026-10-11T19:58:00-07:00";
+    const SITE_VERSION = "v12";
+    const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", Jeremy: "rockruff", Steve: "pikachu" });
     function svgData(svg) { return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`; }
+    function xmlEsc(value) { return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&apos;"}[ch])); }
+    function splitLabel(value, max = 18) {
+      const words = String(value).split(/\s+/); const lines = []; let line = "";
+      for (const word of words) {
+        if (!line) line = word;
+        else if ((line + " " + word).length <= max) line += " " + word;
+        else { lines.push(line); line = word; }
+      }
+      if (line) lines.push(line);
+      return lines.slice(0, 3);
+    }
+    function starWarsCardPlaceholder(number, name, debut = false) {
+      const lines = splitLabel(name, 19);
+      const tspans = lines.map((line, i) => `<tspan x="372" dy="${i === 0 ? 0 : 62}">${xmlEsc(line)}</tspan>`).join("");
+      return svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 744 1038">
+        <defs><radialGradient id="g" cx="50%" cy="26%" r="80%"><stop offset="0" stop-color="#17243f"/><stop offset=".55" stop-color="#070a12"/><stop offset="1" stop-color="#020306"/></radialGradient>
+        <linearGradient id="gold" x1="0" x2="1"><stop stop-color="#fff49a"/><stop offset=".5" stop-color="#ffe81f"/><stop offset="1" stop-color="#b89100"/></linearGradient></defs>
+        <rect width="744" height="1038" rx="38" fill="url(#g)"/>
+        <g fill="#fff" opacity=".7">${Array.from({length:30}, (_,i)=>`<circle cx="${(i*97)%720+12}" cy="${(i*173)%980+18}" r="${i%3+1}"/>`).join("")}</g>
+        <rect x="28" y="28" width="688" height="982" rx="28" fill="none" stroke="url(#gold)" stroke-width="5"/>
+        <text x="372" y="150" text-anchor="middle" fill="#d9e6ff" font-family="Arial,sans-serif" font-size="28" font-weight="700" letter-spacing="5">2026 TOPPS CHROME</text>
+        <text x="372" y="230" text-anchor="middle" fill="url(#gold)" font-family="Arial Black,Arial,sans-serif" font-size="66" font-weight="900" letter-spacing="2">STAR WARS</text>
+        <circle cx="372" cy="455" r="146" fill="none" stroke="#2d4165" stroke-width="2"/>
+        <path d="M245 455h254M372 328v254M282 365l180 180M462 365l-180 180" stroke="#172b50" stroke-width="3"/>
+        <text x="372" y="692" text-anchor="middle" fill="#f4f7ff" font-family="Arial,sans-serif" font-size="48" font-weight="800">${tspans}</text>
+        <text x="372" y="890" text-anchor="middle" fill="#ffe81f" font-family="Arial,sans-serif" font-size="34" font-weight="800">#${xmlEsc(number)}</text>
+        ${debut ? '<rect x="248" y="925" width="248" height="54" rx="27" fill="#ffe81f"/><text x="372" y="962" text-anchor="middle" fill="#08090d" font-family="Arial,sans-serif" font-size="26" font-weight="900">TOPPS DEBUT</text>' : ''}
+      </svg>`);
+    }
+    function rgbMewPlaceholder(letter) {
+      const tones = { B:["#2b56ff","#75d7ff"], G:["#21b56b","#9bf1a8"], R:["#e63d55","#ff9f9f"] };
+      const [a,b] = tones[letter] || tones.B;
+      return svgData(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 744 1038"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs><rect width="744" height="1038" rx="38" fill="#11131a"/><rect x="30" y="30" width="684" height="978" rx="28" fill="url(#g)" opacity=".26" stroke="${b}" stroke-width="5"/><text x="372" y="210" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="46" font-weight="900">30th CELEBRATION</text><text x="372" y="500" text-anchor="middle" fill="#fff" font-family="Arial Black,Arial,sans-serif" font-size="118" font-weight="900">MEW</text><text x="372" y="620" text-anchor="middle" fill="${b}" font-family="Arial,sans-serif" font-size="42" font-weight="800">RGB RARE • ${letter}</text><text x="372" y="850" text-anchor="middle" fill="#d9dce7" font-family="Arial,sans-serif" font-size="24">Image placeholder</text></svg>`);
+    }
     function redPandaSvg(mode) {
       const body = mode === "body" || mode === "berry";
       const sleepy = mode === "sleepy";
@@ -616,9 +667,52 @@
       ...card, displayNumber: card.number, pokemon: true, year: SET_YEARS[card.set] || "—", printType: inferPrintType(card), rarity: card.set.includes("Black Star Promos") ? "Promo" : (inferPrintType(card) === "Secret / special print" ? "Secret / special" : "Not cataloged"), finishes: inferTepigFinishes(card)
     }));
 
+
+    const celebrationNames = ["Exeggcute", "Alolan Exeggutor", "Volbeat", "Illumise", "Tropius", "Cherubi", "Cherrim", "Vivillon", "Vulpix", "Ninetales", "Moltres", "Ho-Oh", "Victini", "Reshiram", "Fuecoco ex", "Slowpoke", "Lapras", "Articuno", "Kyogre", "Palkia", "Greninja ex", "Wishiwashi", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu", "Pikachu ex", "Pikachu ex", "Zapdos", "Zekrom", "Zeraora", "Toxel", "Toxtricity", "Toxtricity", "Morpeko", "Miraidon", "Mewtwo", "Mewtwo ex", "Mew", "Mew ex", "Marill", "Azumarill", "Espeon", "Espeon ex", "Sylveon ex", "Unown", "Drifloon", "Cresselia", "Chandelure", "Xerneas", "Comfey", "Cosmog", "Cosmoem", "Lunala", "Gimmighoul", "Groudon", "Lucario", "Seismitoad", "Lycanroc", "Koraidon", "Nidoran♀", "Nidorina", "Alolan Meowth", "Gengar ex", "Umbreon", "Umbreon ex", "Murkrow", "Scraggy", "Zorua", "Zoroark", "Deino", "Zweilous", "Hydreigon", "Yveltal", "Galarian Meowth", "Jirachi ex", "Dialga", "Ferrothorn", "Solgaleo", "Zacian", "Zamazenta", "Gholdengo", "Salamence ex", "Jangmo-o", "Hakamo-o", "Kommo-o", "Meowth", "Kangaskhan", "Ditto", "Eevee", "Eevee", "Eevee", "Snorlax", "Igglybuff", "Lugia", "Hisuian Zorua", "Hisuian Zoroark", "Minior", "Maushold", "Poké Pad", "Switch", "Ultra Ball", "Alolan Exeggutor", "Moltres", "Lapras", "Articuno", "Zapdos", "Toxtricity", "Morpeko", "Drifloon", "Chandelure", "Lycanroc", "Alolan Meowth", "Scraggy", "Galarian Meowth", "Gholdengo", "Kommo-o", "Meowth", "Hisuian Zorua", "Maushold", "Fuecoco ex", "Greninja ex", "Pikachu ex", "Pikachu ex", "Mewtwo ex", "Mew ex", "Sylveon ex", "Gengar ex", "Jirachi ex", "Salamence ex", "Mewtwo ex", "Mew ex"];
+    const celebrationRare = new Set([12,14,19,20,56,62,63,65,76,80,82,86,100,103,105,106,107,121]);
+    const celebrationDoubleRare = new Set([15,21,53,54,64,66,70,71,90,92,102,109]);
+    function celebrationRarity(number, name) {
+      if (number >= 23 && number <= 52) return "Pikachu Rare";
+      if (number >= 129 && number <= 146) return "Illustration Rare";
+      if (number >= 147 && number <= 156) return "Special Illustration Rare";
+      if (number >= 157 && number <= 158) return "Futuristic Rare";
+      if (celebrationDoubleRare.has(number)) return "Double Rare";
+      if (celebrationRare.has(number)) return "Rare";
+      return "Common";
+    }
+    const celebrationCards = celebrationNames.map((name, index) => {
+      const number = index + 1, id = String(number).padStart(3, "0");
+      return {
+        id, number, name, set: "30th Celebration", displayNumber: `#${id}/128`, year: 2026,
+        pokemon: number < 126,
+        printType: number > 128 ? "Special-number print" : (number >= 126 ? "Trainer" : (name.toLowerCase().includes(" ex") ? "Pokémon ex" : "Standard set card")),
+        rarity: celebrationRarity(number, name), finishes: ["Holo"],
+        images: [`https://assets.tcgdex.net/en/me/30th/${id}/high.webp`]
+      };
+    });
+    for (const letter of ["B","G","R"]) celebrationCards.push({
+      id: letter, number: letter, name: "Mew", set: "30th Celebration", displayNumber: `#${letter}`, year: 2026,
+      pokemon: true, printType: "RGB Rare", rarity: "RGB Rare", finishes: ["Holo"], images: [rgbMewPlaceholder(letter)]
+    });
+
+    const starWarsNames = ["Obi-Wan Kenobi", "Lezine DEBUT", "Chopper", "Devon Izara DEBUT", "Wizzich Mozzer", "General Maximilian Veers", "Rune Haako", "Tusken Raider Warrior", "Baylan Skoll", "Captain Kaido DEBUT", "Freck", "Clone Captain Rex", "Sy Snootles", "Chewbacca", "Rabé", "Hamato Xiono", "Ahsoka Tano", "Davo Sculdun", "At Attin frogdog DEBUT", "Icarus DEBUT", "Ezra Bridger", "General Hux", "Ben Quadinaros", "Bo-Katan Kryze", "Looti Vario DEBUT", "Sergeant Heert", "Mace Windu", "Nooma DEBUT", "General Grievous", "Maz Kanata", "Rey", "Grogu", "Grand Admiral Thrawn", "Runai Sculdun DEBUT", "Hutt Sister", "Ralakili", "Mace Windu", "Poe Dameron", "Moff Gideon", "Hera Syndulla", "Senator Oran DEBUT", "The Armorer", "Qi'ra", "Yoda", "BB-8", "D-O", "The Mandalorian", "Sabine Wren", "Supervisor Lonni Jung", "Vult Skerris", "Dryden Vos", "Anakin Skywalker", "Finn", "Colonel Aftab Ackbar", "Zeb Orrelios", "Shin Hati", "Kylo Ren", "Kanan Jarrus", "Sidon Ithano", "Klatooinian Crime Boss", "Eedy Karn", "Babu Frik", "Cobb Vanth", "Morgan Elsbeth", "Ghorman Spider DEBUT", "Emperor Palpatine", "Sergeant Gharial DEBUT", "Colonel Ward DEBUT", "Bobbajo", "Haja Estree", "Syril Karn", "Commissioner Helgait", "Erskin Semaj", "Jyn Erso", "Hype Fazon", "Rook Kast", "Scorn DEBUT", "Bix Caleen", "Kuiil", "Captain Enoch", "Stekan Sculdun DEBUT", "Chirrut Îmwe", "Han Solo", "Imperial Inquisitor DEBUT", "Lieutenant Connix", "Rose Tico", "The Duchess of Plazir", "Great Mother Lakesis DEBUT", "Drash", "Jan Dodonna", "Luke Skywalker", "Niro DEBUT", "Captain Phasma", "Jedi Master Sol", "Omera", "Vel Sartha", "Kleya Marki", "Huyang", "Moff Tarkin", "Bardi DEBUT", "Asajj Ventress", "Supreme Leader Snoke", "The Stranger", "Captain Gilad Pellaeon", "Cassian Andor", "Pix the Tooka DEBUT", "Jace Rucklin", "Ponda Baba", "Raxshir", "Noti DEBUT", "Jedi Master Indara", "Hutt Brother", "Mon Mothma", "Leida Mothma", "Dedra Meero", "Owen Lars", "Yaddle", "Lovey", "Massiff", "Elia Kane", "K-2SO", "General Draven", "Jod Na Nawood", "Count Dooku", "Bossk", "Dobbu Scay", "Imperial Remnant Snowtrooper DEBUT", "Ranzar \"Ran\" Malk", "Luthen Rael", "Bail Organa", "Neel", "Padmé Amidala", "Zorii Bliss", "Admiral Ackbar", "Embo", "Jawa", "Saw Gerrera", "Cinta Kaz", "SM-33", "Lyco Strata DEBUT", "Master Eeko-Dio Daki DEBUT", "Tallie Lintra", "8D8", "Greef Karga", "Jabba the Hutt", "Maul", "Beela DEBUT", "Taun We", "BDX Droid DEBUT", "Captain Peavey", "Jedi Padawan Jecki Lon", "Dreena DEBUT", "Supervisor Lagret DEBUT", "Beef DEBUT", "Luminara Unduli", "Gatori DEBUT", "Captain Canady", "Omega", "Samm DEBUT", "Krrsantan", "Spybot DEBUT", "Barriss Offee", "B-1 Mercenary Droid DEBUT", "Jar Jar Binks", "Boba Fett", "Enza Rylanz DEBUT", "Clem Andor", "Bubbles DEBUT", "C-3PO", "Aayla Secura", "Darth Maul", "Cad Bane", "Perrin Fertha", "B2EMO", "L3-37", "Darth Vader", "Plo Koon", "Qui-Gon Jinn", "Fennec Shand", "Carro Rylanz DEBUT", "Brander Lawson DEBUT", "Hugo Durant DEBUT", "Leia Organa", "Even Piell", "Captain Typho", "B-2 Mercenary Droid DEBUT", "Oathkeeper DEBUT", "Keibu DEBUT", "Gerdis DEBUT", "Lando Calrissian", "Eleventh Brother DEBUT", "Vane", "Mrs. Ikk DEBUT", "Dr. Royce Hemlock", "Lord Janu DEBUT", "Droopy McCool", "R2-D2", "Oppo Rancisis", "The Grand Inquisitor", "Rotta the Hutt"];
+    const starWarsCards = starWarsNames.map((rawName, index) => {
+      const number = index + 1, id = String(number).padStart(3, "0");
+      const debut = rawName.endsWith(" DEBUT");
+      const name = debut ? rawName.slice(0, -6).trim() : rawName;
+      return {
+        id, number, name, set: "2026 Topps Chrome Star Wars", displayNumber: `#${number}`, year: 2026,
+        pokemon: false, debut, printType: debut ? "Base Character • Topps Debut" : "Base Character",
+        rarity: debut ? "Topps Debut" : "Base", finishes: [],
+        images: [starWarsCardPlaceholder(number, name, debut)]
+      };
+    });
+
     const CHECKLISTS = {
       "pitch-black": { id: "pitch-black", label: "Pitch Black", title: "Pitch Black", description: "2026 Pitch Black set", cards: pitchBlackCards, supportsPokemonOnly: true },
-      "tepig-line": { id: "tepig-line", label: "Tepig • Pignite • Emboar", title: "Tepig / Pignite / Emboar", description: "English physical TCG printings", cards: tepigLineCards, supportsPokemonOnly: false }
+      "tepig-line": { id: "tepig-line", label: "Tepig • Pignite • Emboar", title: "Tepig / Pignite / Emboar", description: "English physical TCG printings", cards: tepigLineCards, supportsPokemonOnly: false },
+      "30th-celebration": { id: "30th-celebration", label: "Pokémon 30th Celebration", title: "Pokémon 30th Celebration", description: "2026 30th Anniversary main set • 161 cards", cards: celebrationCards, supportsPokemonOnly: true },
+      "star-wars-2026": { id: "star-wars-2026", label: "2026 Topps Chrome Star Wars", title: "2026 Topps Chrome Star Wars", description: "Official 200-card base Characters checklist", cards: starWarsCards, supportsPokemonOnly: false }
     };
 
     const $ = selector => document.querySelector(selector);
@@ -628,7 +722,7 @@
     let activeChecklist = "pitch-black", activeUser = "Isabella", displayMode = "pokemon", filter = "all", search = "";
     let cloudAvailable = false, authBusy = false, modalCardId = null;
     let dirty = loadDirty();
-    let activityByChecklist = { "pitch-black": [], "tepig-line": [] };
+    let activityByChecklist = Object.fromEntries(Object.keys(CHECKLISTS).map(cid => [cid, []]));
     let state = loadState();
     let authTokens = loadAuthTokens();
     let displayNames = loadDisplayNames();
@@ -731,10 +825,12 @@
     function loadDirty() { try { const p = JSON.parse(localStorage.getItem(DIRTY_STORAGE_KEY) || "[]"); return new Set(Array.isArray(p) ? p : []); } catch { return new Set(); } }
     function writeDirty() { localStorage.setItem(DIRTY_STORAGE_KEY, JSON.stringify([...dirty])); }
     function applyTheme() {
-      const theme = activeChecklist === "tepig-line" ? "tepig" : "pitch-black";
+      const themes = { "pitch-black": "pitch-black", "tepig-line": "tepig", "30th-celebration": "celebration", "star-wars-2026": "star-wars" };
+      const themeColors = { "pitch-black": "#0a0a0f", "tepig": "#2b120d", "celebration": "#171307", "star-wars": "#05070d" };
+      const theme = themes[activeChecklist] || "pitch-black";
       document.body.dataset.theme = theme;
       const themeMeta = document.querySelector('meta[name="theme-color"]');
-      if (themeMeta) themeMeta.setAttribute("content", theme === "tepig" ? "#2b120d" : "#0a0a0f");
+      if (themeMeta) themeMeta.setAttribute("content", themeColors[theme] || "#0a0a0f");
     }
     function checklist(id = activeChecklist) { return CHECKLISTS[id]; }
     function cards(id = activeChecklist) { return checklist(id).cards; }
@@ -817,11 +913,25 @@
       return { scope, have, need, pct };
     }
     function breakdownGroups() {
-      if (activeChecklist === "tepig-line") {
-        const names = ["Tepig", "Pignite", "Emboar", "Mega Emboar ex"];
-        return names.map(name => ({ name, cards: cards().filter(c => c.name === name) }));
-      }
       const all = cards();
+      if (activeChecklist === "tepig-line") {
+        return ["Tepig", "Pignite", "Emboar", "Mega Emboar ex"].map(name => ({ name, cards: all.filter(c => c.name === name) }));
+      }
+      if (activeChecklist === "30th-celebration") {
+        return [
+          { name: "Main set 001–128", cards: all.filter(c => typeof c.number === "number" && c.number <= 128) },
+          { name: "30 Pikachu Rares", cards: all.filter(c => typeof c.number === "number" && c.number >= 23 && c.number <= 52) },
+          { name: "Illustration Rares", cards: all.filter(c => c.rarity === "Illustration Rare") },
+          { name: "SIR / Futuristic / RGB", cards: all.filter(c => ["Special Illustration Rare","Futuristic Rare","RGB Rare"].includes(c.rarity)) }
+        ];
+      }
+      if (activeChecklist === "star-wars-2026") {
+        return [
+          { name: "Base Characters", cards: all },
+          { name: "Topps Debut", cards: all.filter(c => c.debut) },
+          { name: "Returning characters", cards: all.filter(c => !c.debut) }
+        ];
+      }
       return [
         { name: "Pokémon cards", cards: all.filter(c => c.pokemon) },
         { name: "Trainer / Energy", cards: all.filter(c => !c.pokemon) },
@@ -830,7 +940,7 @@
     }
     function renderBreakdown() {
       const groups = breakdownGroups();
-      $("#breakdownHint").textContent = activeChecklist === "tepig-line" ? "By evolution" : "By card group";
+      $("#breakdownHint").textContent = activeChecklist === "tepig-line" ? "By evolution" : (activeChecklist === "star-wars-2026" ? "Base checklist" : "By card group");
       $("#breakdown").innerHTML = groups.map(g => {
         const count = g.cards.filter(c => collected(statusOf(c.id))).length; const pct = g.cards.length ? Math.round(count / g.cards.length * 100) : 0;
         return `<div class="break-row"><div class="break-name">${esc(g.name)}</div><div class="break-count">${count} / ${g.cards.length}</div><div class="mini-progress"><span style="width:${pct}%"></span></div></div>`;
@@ -845,6 +955,14 @@
         for (const name of ["Tepig", "Pignite", "Emboar", "Mega Emboar ex"]) {
           const group = cards().filter(c => c.name === name); items.push([`🐷 All ${name}`, group.length > 0 && group.every(c => collected(statusOf(c.id)))]);
         }
+      } else if (activeChecklist === "30th-celebration") {
+        const pikachu = cards().filter(c => typeof c.number === "number" && c.number >= 23 && c.number <= 52);
+        items.push(["⚡ All 30 Pikachu", pikachu.length === 30 && pikachu.every(c => collected(statusOf(c.id)))]);
+        items.push(["🎉 Full 161", cards().every(c => collected(statusOf(c.id)))]);
+      } else if (activeChecklist === "star-wars-2026") {
+        const debuts = cards().filter(c => c.debut);
+        items.push(["✨ All Topps Debuts", debuts.length > 0 && debuts.every(c => collected(statusOf(c.id)))]);
+        items.push(["🌌 Full Base 200", cards().every(c => collected(statusOf(c.id)))]);
       } else {
         const pokemon = cards().filter(c => c.pokemon); items.push(["⚡ All Pokémon", pokemon.every(c => collected(statusOf(c.id)))]); items.push(["👑 Full 120", cards().every(c => collected(statusOf(c.id)))]);
       }
@@ -871,7 +989,9 @@
     }
     function renderGrid() {
       const visible = filteredCards();
-      $("#gridTitle").textContent = activeChecklist === "pitch-black" ? (displayMode === "pokemon" ? "Pokémon cards" : "Full 120-card set") : "Tepig, Pignite & Emboar cards";
+      $("#gridTitle").textContent = activeChecklist === "pitch-black" ? (displayMode === "pokemon" ? "Pokémon cards" : "Full 120-card set") :
+        (activeChecklist === "tepig-line" ? "Tepig, Pignite & Emboar cards" :
+        (activeChecklist === "30th-celebration" ? (displayMode === "pokemon" ? "30th Celebration Pokémon" : "Full 161-card set") : "2026 Topps Chrome Star Wars • Base 200"));
       const scope = scopeCards(); const have = scope.filter(c => collected(statusOf(c.id))).length; const pct = scope.length ? Math.round(have / scope.length * 100) : 0;
       $("#visibleCount").textContent = `${visible.length} shown • ${pct}% complete`;
       $("#modeButtons").style.display = checklist().supportsPokemonOnly ? "contents" : "none";
@@ -884,7 +1004,7 @@
         return `<article class="card ${cls}" data-id="${esc(c.id)}" tabindex="0" role="button" aria-label="Open ${esc(c.name)} ${esc(c.displayNumber)} details. ${esc(statusLabel(s))}.">
           <div class="card-image-wrap"><img src="${esc(c.images[0])}" data-fallbacks="${esc(c.images.slice(1).join("||"))}" alt="${esc(c.name)} ${esc(c.set)} ${esc(c.displayNumber)}" loading="lazy" decoding="async" /><div class="fallback">${esc(c.name)}<br>${esc(c.displayNumber)}</div>
           <div class="status-badge have">HAVE</div><div class="status-badge need">NEED</div>${!isUnlocked() ? `<div class="read-badge">VIEW</div>` : ""}</div>
-          <div class="card-info"><div class="card-name">${esc(c.name)}</div><div class="card-meta"><span>${esc(c.displayNumber)}</span><span class="kind">${esc(activeChecklist === "pitch-black" ? (c.pokemon ? "Pokémon" : "Trainer / Energy") : c.set)}</span></div>${finishTagsHtml(c, true)}</div>
+          <div class="card-info"><div class="card-name">${esc(c.name)}</div><div class="card-meta"><span>${esc(c.displayNumber)}</span><span class="kind">${esc(activeChecklist === "pitch-black" ? (c.pokemon ? "Pokémon" : "Trainer / Energy") : (activeChecklist === "tepig-line" ? c.set : (activeChecklist === "30th-celebration" ? c.rarity : c.printType)))}</span></div>${finishTagsHtml(c, true)}</div>
         </article>`;
       }).join("");
       attachImageFallbacks(gridEl);

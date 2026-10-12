@@ -1,13 +1,15 @@
-const ALLOWED_USERS = new Set(["Isabella", "Haley"]);
-const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley" });
-const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face" });
+const ALLOWED_USERS = new Set(["Isabella", "Haley", "Jeremy", "Steve"]);
+const DEFAULT_DISPLAY_NAMES = Object.freeze({ Isabella: "Isabella", Haley: "Haley", Jeremy: "Jeremy", Steve: "Steve" });
+const DEFAULT_AVATARS = Object.freeze({ Isabella: "eevee", Haley: "red-panda-face", Jeremy: "rockruff", Steve: "pikachu" });
 const AVATAR_PRESETS = new Set(["red-panda-face","red-panda-body","red-panda-sleepy","red-panda-berry","eevee","pikachu","vulpix","jigglypuff","mew","togepi","teddiursa","skitty","piplup","minccino","emolga","rowlet","rockruff","yamper","sprigatito","pawmi"]);
 const MAX_CUSTOM_AVATAR_LENGTH = 300000;
 const PIN_ENV = {
   Isabella: "PITCH_BLACK_PIN_ISABELLA",
-  Haley: "PITCH_BLACK_PIN_HALEY"
+  Haley: "PITCH_BLACK_PIN_HALEY",
+  Jeremy: "PITCH_BLACK_PIN_JEREMY",
+  Steve: "PITCH_BLACK_PIN_STEVE"
 };
-const CHECKLISTS = new Set(["pitch-black", "tepig-line"]);
+const CHECKLISTS = new Set(["pitch-black", "tepig-line", "30th-celebration", "star-wars-2026"]);
 const TEPIG_LINE_IDS = new Set(["tepig-bwp-bw02", "tepig-mcd11-3", "tepig-mcd21-13", "tepig-bw1-15", "tepig-bw1-16", "tepig-bw11-25", "tepig-bwp-bw07", "tepig-bw7-24", "tepig-sm12-31", "tepig-swsh5-23", "tepig-swshp-swsh172", "tepig-wht-11", "tepig-wht-96", "tepig-asc-29", "tepig-mep-50", "pignite-bw1-17", "pignite-mcd12-4", "pignite-bw1-18", "pignite-bw11-26", "pignite-bw7-25", "pignite-sm12-32", "pignite-swsh5-24", "pignite-wht-12", "pignite-wht-97", "pignite-asc-30", "emboar-bw1-19", "emboar-bw1-20", "emboar-bwp-bw21", "emboar-bw4-100", "emboar-bw11-27", "emboar-bw7-26", "emboar-sm12-33", "emboar-swsh5-25", "emboar-wht-13", "emboar-wht-98", "emboar-xy9-14", "mega-emboar-asc-31", "mega-emboar-asc-273", "mega-emboar-mep-35"]);
 const VALID_STATUSES = new Set(["have", "need"]);
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30;
@@ -23,18 +25,28 @@ function validUser(user) { return typeof user === "string" && ALLOWED_USERS.has(
 function validChecklist(checklist) { return typeof checklist === "string" && CHECKLISTS.has(checklist); }
 function validCardId(checklist, id) {
   if (checklist === "pitch-black") return /^\d{3}$/.test(id) && Number(id) >= 1 && Number(id) <= 120;
-  return checklist === "tepig-line" && TEPIG_LINE_IDS.has(id);
+  if (checklist === "tepig-line") return TEPIG_LINE_IDS.has(id);
+  if (checklist === "30th-celebration") return (/^\d{3}$/.test(id) && Number(id) >= 1 && Number(id) <= 158) || ["B","G","R"].includes(id);
+  if (checklist === "star-wars-2026") return /^\d{3}$/.test(id) && Number(id) >= 1 && Number(id) <= 200;
+  return false;
 }
 function allCardIds(checklist) {
   if (checklist === "pitch-black") return Array.from({ length: 120 }, (_, index) => String(index + 1).padStart(3, "0"));
-  return checklist === "tepig-line" ? [...TEPIG_LINE_IDS] : [];
+  if (checklist === "tepig-line") return [...TEPIG_LINE_IDS];
+  if (checklist === "30th-celebration") return [...Array.from({ length: 158 }, (_, index) => String(index + 1).padStart(3, "0")), "B", "G", "R"];
+  if (checklist === "star-wars-2026") return Array.from({ length: 200 }, (_, index) => String(index + 1).padStart(3, "0"));
+  return [];
 }
 function withDefaultNeeds(checklist, explicitStatuses = {}) {
   const statuses = Object.fromEntries(allCardIds(checklist).map(id => [id, "need"]));
   for (const [id, value] of Object.entries(explicitStatuses || {})) statuses[id] = value === "have" || value === "duplicate" ? "have" : "need";
   return statuses;
 }
-function storageKey(checklist, user) { return checklist === "pitch-black" ? `pitch-black:${user}` : `tepig-line:${user}`; }
+function storageKey(checklist, user) {
+  if (checklist === "pitch-black") return `pitch-black:${user}`;
+  if (checklist === "tepig-line") return `tepig-line:${user}`;
+  return `pokemon-checklists:${checklist}:${user}`;
+}
 function activityKey(checklist) { return `pokemon-checklists:activity:${checklist}`; }
 function displayNameKey(user) { return `pokemon-checklists:display-name:${user}`; }
 function avatarKey(user) { return `pokemon-checklists:avatar:${user}`; }
@@ -66,7 +78,7 @@ async function getAvatars(context) {
 function cleanStatuses(checklist, statuses, owned) {
   const out = {};
   if (statuses && typeof statuses === "object" && !Array.isArray(statuses)) {
-    const entries = Object.entries(statuses); if (entries.length > 200) return null;
+    const entries = Object.entries(statuses); if (entries.length > 500) return null;
     for (const [rawId, value] of entries) {
       const id = String(rawId);
       if (!validCardId(checklist, id)) return null;
@@ -78,7 +90,7 @@ function cleanStatuses(checklist, statuses, owned) {
     return out;
   }
   if (Array.isArray(owned)) {
-    if (owned.length > 200) return null;
+    if (owned.length > 500) return null;
     for (const rawId of owned) { const id = String(rawId); if (validCardId(checklist, id)) out[id] = "have"; }
     return out;
   }
